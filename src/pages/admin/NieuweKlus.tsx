@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Plus, Trash2, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Trash2, Check, MapPin, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Customer, Product, ProductCategory } from "@/types/database";
 
@@ -61,17 +61,49 @@ const NieuweKlus = () => {
   const [workPostalCode, setWorkPostalCode] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [isDirect, setIsDirect] = useState(false);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
+  const [companyAddress, setCompanyAddress] = useState("");
 
   useEffect(() => {
     Promise.all([
       supabase.from("customers").select("*").order("name"),
       supabase.from("products").select("*, product_categories(*)").eq("is_active", true).order("name"),
-    ]).then(([{ data: c }, { data: p }]) => {
+      supabase.from("settings").select("*").eq("key", "company_info").single(),
+    ]).then(([{ data: c }, { data: p }, { data: ci }]) => {
       setCustomers((c as Customer[]) || []);
       setProducts((p as Product[]) || []);
+      if (ci) {
+        const info = ci.value as any;
+        const addr = [info.address, info.postal_code, info.city].filter(Boolean).join(", ");
+        setCompanyAddress(addr);
+      }
       setLoading(false);
     });
   }, []);
+
+  const calculateDistance = async () => {
+    const toAddr = [workAddress, workPostalCode, workCity].filter(Boolean).join(", ");
+    if (!toAddr || !companyAddress) {
+      toast({ title: "Vul werkadres in en stel bedrijfsadres in bij Instellingen", variant: "destructive" });
+      return;
+    }
+    setCalculatingDistance(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("calculate-distance", {
+        body: { from_address: companyAddress, to_address: toAddr },
+      });
+      if (error) throw error;
+      if (data?.distance_km && data.distance_km > 0) {
+        setTravelKm(String(data.distance_km));
+        toast({ title: `Afstand berekend: ${data.distance_km} km`, description: "Enkele reis vanaf bedrijfsadres" });
+      } else {
+        toast({ title: "Kon afstand niet berekenen", description: data?.error || "Probeer het opnieuw", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Fout bij berekening", description: e.message, variant: "destructive" });
+    }
+    setCalculatingDistance(false);
+  };
 
   const travelCost = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
@@ -186,11 +218,6 @@ const NieuweKlus = () => {
                 </Select>
               </div>
             )}
-            <div className="grid gap-2">
-              <Label>Afstand (km) — voor berekening voorrijkosten</Label>
-              <Input type="number" value={travelKm} onChange={(e) => setTravelKm(e.target.value)} placeholder="Bijv. 50" />
-              {travelKm && <p className="text-sm text-muted-foreground">Voorrijkosten: {formatPrice(travelCost)}</p>}
-            </div>
           </CardContent>
         </Card>
       )}
@@ -316,6 +343,33 @@ const NieuweKlus = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>Postcode</Label><Input value={workPostalCode} onChange={(e) => setWorkPostalCode(e.target.value)} /></div>
               <div className="grid gap-2"><Label>Plaats</Label><Input value={workCity} onChange={(e) => setWorkCity(e.target.value)} /></div>
+            </div>
+
+            {/* Distance calculation */}
+            <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Afstand (enkele reis)</Label>
+                  <p className="text-xs text-muted-foreground">Wordt berekend vanaf bedrijfsadres{companyAddress ? `: ${companyAddress}` : ""}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={calculateDistance}
+                  disabled={calculatingDistance || !workAddress}
+                >
+                  {calculatingDistance ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Berekenen...</> : <><MapPin className="mr-2 h-4 w-4" /> Bereken afstand</>}
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label className="text-xs">Afstand (km)</Label>
+                  <Input type="number" value={travelKm} onChange={(e) => setTravelKm(e.target.value)} placeholder="Wordt automatisch berekend" />
+                </div>
+                <div className="grid gap-1 items-end">
+                  {travelKm && <p className="text-sm font-medium">Voorrijkosten: {formatPrice(travelCost)}</p>}
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="direct" checked={isDirect} onCheckedChange={(c) => { setIsDirect(!!c); if (c) setScheduledDate(""); }} />

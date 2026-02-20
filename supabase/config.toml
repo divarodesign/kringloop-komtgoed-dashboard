@@ -1,1 +1,4 @@
 project_id = "ngndjbeltygurjcnlcxz"
+
+[functions.calculate-distance]
+verify_jwt = false
