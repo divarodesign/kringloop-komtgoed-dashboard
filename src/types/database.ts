@@ -18,6 +18,7 @@ export interface ProductCategory {
   id: string;
   name: string;
   description: string | null;
+  icon: string | null;
   created_at: string;
 }
 
@@ -27,6 +28,7 @@ export interface Product {
   name: string;
   description: string | null;
   price: number;
+  icon: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
