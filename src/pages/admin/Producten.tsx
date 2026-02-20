@@ -216,7 +216,10 @@ const Producten = () => {
     // Build category name → id lookup
     const catMap = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c.id]));
 
-    const payload = importData.map((row) => {
+    // Existing product names for duplicate detection
+    const existingNames = new Set(products.map((p) => p.name.toLowerCase().trim()));
+
+    const allRows = importData.map((row) => {
       const name = String(row.naam || row.name || row.Naam || row.Name || "").trim();
       const catName = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
       const matchedCatId = catMap.get(catName.toLowerCase()) || importCategoryId || null;
@@ -230,8 +233,19 @@ const Producten = () => {
       };
     }).filter((p) => p.name);
 
+    // Filter out duplicates (by name, case-insensitive)
+    const seen = new Set<string>();
+    const payload = allRows.filter((p) => {
+      const key = p.name.toLowerCase();
+      if (existingNames.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const skipped = allRows.length - payload.length;
+
     if (payload.length === 0) {
-      toast({ title: "Geen geldige producten gevonden", description: "Zorg dat je kolom 'naam' hebt", variant: "destructive" });
+      toast({ title: "Geen nieuwe producten gevonden", description: skipped > 0 ? `${skipped} dubbele producten overgeslagen` : "Zorg dat je kolom 'naam' hebt", variant: "destructive" });
       setImporting(false);
       return;
     }
@@ -240,7 +254,8 @@ const Producten = () => {
     if (error) {
       toast({ title: "Fout bij import", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `${payload.length} producten geïmporteerd`, description: "Icons zijn automatisch toegewezen." });
+      const desc = skipped > 0 ? `${skipped} dubbele overgeslagen. Icons automatisch toegewezen.` : "Icons zijn automatisch toegewezen.";
+      toast({ title: `${payload.length} producten geïmporteerd`, description: desc });
       setImportDialogOpen(false);
       setImportData([]);
       fetchData();
