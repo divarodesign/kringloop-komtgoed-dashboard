@@ -12,6 +12,8 @@ import NotFound from "@/pages/NotFound";
 import Dashboard from "@/pages/admin/Dashboard";
 import Klanten from "@/pages/admin/Klanten";
 import Klussen from "@/pages/admin/Klussen";
+import NieuweKlus from "@/pages/admin/NieuweKlus";
+import KlusDetail from "@/pages/admin/KlusDetail";
 import Planbord from "@/pages/admin/Planbord";
 import Opleveringen from "@/pages/admin/Opleveringen";
 import Producten from "@/pages/admin/Producten";
@@ -36,6 +38,8 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="klanten" element={<Klanten />} />
               <Route path="klussen" element={<Klussen />} />
+              <Route path="klussen/nieuw" element={<NieuweKlus />} />
+              <Route path="klussen/:id" element={<KlusDetail />} />
               <Route path="planbord" element={<Planbord />} />
               <Route path="opleveringen" element={<Opleveringen />} />
               <Route path="producten" element={<Producten />} />
