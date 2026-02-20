@@ -16,6 +16,7 @@ import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IconPicker from "@/components/IconPicker";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type { Product, ProductCategory } from "@/types/database";
 
 const Producten = () => {
@@ -149,30 +150,45 @@ const Producten = () => {
     return "Package"; // default icon
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
     const catNames = categories.map((c) => c.name);
-    const wb = XLSX.utils.book_new();
-    const wsData = [
-      ["naam", "beschrijving", "prijs", "categorie"],
-      ["Voorbeeld product", "Beschrijving hier", "25.00", catNames[0] || ""],
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Producten");
 
-    // Add category dropdown validation to column D
+    // Headers
+    ws.columns = [
+      { header: "naam", key: "naam", width: 30 },
+      { header: "beschrijving", key: "beschrijving", width: 40 },
+      { header: "prijs", key: "prijs", width: 12 },
+      { header: "categorie", key: "categorie", width: 25 },
+    ];
+
+    // Style header row
+    ws.getRow(1).font = { bold: true };
+
+    // Example row
+    ws.addRow({ naam: "Voorbeeld product", beschrijving: "Beschrijving hier", prijs: 25.00, categorie: catNames[0] || "" });
+
+    // Add category dropdown validation to column D (rows 2-500)
     if (catNames.length > 0) {
-      ws["!dataValidation"] = [{
-        sqref: "D2:D9999",
-        type: "list",
-        formula1: `"${catNames.join(",")}"`,
-      }];
+      for (let i = 2; i <= 500; i++) {
+        ws.getCell(`D${i}`).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: [`"${catNames.join(",")}"`],
+        };
+      }
     }
 
-    // Set column widths
-    ws["!cols"] = [{ wch: 30 }, { wch: 40 }, { wch: 10 }, { wch: 25 }];
-
-    XLSX.utils.book_append_sheet(wb, ws, "Producten");
-    XLSX.writeFile(wb, "producten-template.xlsx");
-    toast({ title: "Template gedownload", description: "Vul de kolommen in en importeer het bestand." });
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "producten-template.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Template gedownload", description: "Open in Excel en gebruik de dropdown bij 'categorie'." });
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
