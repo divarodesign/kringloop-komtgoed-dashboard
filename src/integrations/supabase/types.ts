@@ -14,16 +14,525 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          postal_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      deliveries: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          job_id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_photos: {
+        Row: {
+          created_at: string
+          delivery_id: string
+          description: string | null
+          id: string
+          job_item_id: string | null
+          photo_url: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_id: string
+          description?: string | null
+          id?: string
+          job_item_id?: string | null
+          photo_url: string
+        }
+        Update: {
+          created_at?: string
+          delivery_id?: string
+          description?: string | null
+          id?: string
+          job_item_id?: string | null
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_photos_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_job_item_id_fkey"
+            columns: ["job_item_id"]
+            isOneToOne: false
+            referencedRelation: "job_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extra_sales: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          job_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description: string
+          id?: string
+          job_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extra_sales_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_number: string | null
+          job_id: string
+          paid_at: string | null
+          sent_at: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          job_id: string
+          paid_at?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          job_id?: string
+          paid_at?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          job_id: string
+          product_id: string | null
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          job_id: string
+          product_id?: string | null
+          quantity?: number
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          job_id?: string
+          product_id?: string | null
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          advised_price: number | null
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          custom_price: number | null
+          customer_id: string
+          description: string | null
+          discount_type: string | null
+          discount_value: number | null
+          extra_costs: number | null
+          extra_costs_description: string | null
+          id: string
+          is_direct: boolean
+          job_type: string
+          scheduled_date: string | null
+          status: string
+          title: string
+          travel_cost: number
+          travel_distance_km: number | null
+          updated_at: string
+          work_address: string | null
+          work_city: string | null
+          work_postal_code: string | null
+        }
+        Insert: {
+          advised_price?: number | null
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_price?: number | null
+          customer_id: string
+          description?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          extra_costs?: number | null
+          extra_costs_description?: string | null
+          id?: string
+          is_direct?: boolean
+          job_type?: string
+          scheduled_date?: string | null
+          status?: string
+          title: string
+          travel_cost?: number
+          travel_distance_km?: number | null
+          updated_at?: string
+          work_address?: string | null
+          work_city?: string | null
+          work_postal_code?: string | null
+        }
+        Update: {
+          advised_price?: number | null
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_price?: number | null
+          customer_id?: string
+          description?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          extra_costs?: number | null
+          extra_costs_description?: string | null
+          id?: string
+          is_direct?: boolean
+          job_type?: string
+          scheduled_date?: string | null
+          status?: string
+          title?: string
+          travel_cost?: number
+          travel_distance_km?: number | null
+          updated_at?: string
+          work_address?: string | null
+          work_city?: string | null
+          work_postal_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          is_active: boolean
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          quote_number: string | null
+          sent_at: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          quote_number?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          quote_number?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "medewerker"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +659,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "medewerker"],
+    },
   },
 } as const
