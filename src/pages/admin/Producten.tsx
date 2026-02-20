@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -171,17 +171,26 @@ const Producten = () => {
         </div>
       </div>
 
-      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="all">Alle ({products.length})</TabsTrigger>
-          {categories.map((c) => (
-            <TabsTrigger key={c.id} value={c.id} className="gap-1.5">
-              {renderIcon((c as any).icon)}
-              {c.name} ({products.filter((p) => p.category_id === c.id).length})
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <Card>
+        <CardContent className="py-3">
+          <div className="flex items-center gap-3">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Categorie:</Label>
+            <Select value={activeCategory} onValueChange={setActiveCategory}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Alle categorieën" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle categorieën ({products.length})</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name} ({products.filter((p) => p.category_id === c.id).length})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
