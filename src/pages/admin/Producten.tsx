@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
-import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IconPicker from "@/components/IconPicker";
@@ -110,6 +110,71 @@ const Producten = () => {
     fetchData();
   };
 
+  // Auto-icon mapping: keywords → Lucide icon names
+  const iconKeywords: Record<string, string[]> = {
+    Sofa: ["bank", "sofa", "zetel", "couch"],
+    Bed: ["bed", "matras", "slaap"],
+    ArmchairIcon: ["stoel", "fauteuil", "chair"],
+    Table: ["tafel", "bureau", "desk"],
+    Lamp: ["lamp", "verlichting", "light"],
+    Tv: ["tv", "televisie", "scherm", "monitor"],
+    Refrigerator: ["koelkast", "vriezer", "fridge"],
+    WashingMachine: ["wasmachine", "droger", "washer"],
+    Microwave: ["magnetron", "oven", "microwave"],
+    Bike: ["fiets", "bike"],
+    Car: ["auto", "car", "voertuig"],
+    Shirt: ["kleding", "shirt", "broek", "jas", "clothes"],
+    BookOpen: ["boek", "book", "magazine"],
+    Monitor: ["computer", "laptop", "pc"],
+    Smartphone: ["telefoon", "phone", "mobiel", "smartphone"],
+    Music: ["muziek", "instrument", "piano", "gitaar"],
+    Dumbbell: ["sport", "fitness", "gym"],
+    Flower2: ["tuin", "plant", "bloem", "garden"],
+    Utensils: ["keuken", "bestek", "pan", "bord"],
+    Package: ["doos", "box", "verpakking", "container"],
+    Trash2: ["afval", "grof", "puin", "sloop"],
+    TreePine: ["hout", "plank", "timber"],
+    Paintbrush: ["verf", "decoratie", "schilderij"],
+    Baby: ["baby", "kinder", "speelgoed"],
+    GraduationCap: ["school", "kantoor", "office"],
+    Wine: ["horeca", "restaurant", "bar"],
+    Wrench: ["gereedschap", "tool", "werktuig"],
+  };
+
+  const guessIcon = (name: string): string | null => {
+    const lower = name.toLowerCase();
+    for (const [icon, keywords] of Object.entries(iconKeywords)) {
+      if (keywords.some((kw) => lower.includes(kw))) return icon;
+    }
+    return "Package"; // default icon
+  };
+
+  const downloadTemplate = () => {
+    const catNames = categories.map((c) => c.name);
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+      ["naam", "beschrijving", "prijs", "categorie"],
+      ["Voorbeeld product", "Beschrijving hier", "25.00", catNames[0] || ""],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Add category dropdown validation to column D
+    if (catNames.length > 0) {
+      ws["!dataValidation"] = [{
+        sqref: "D2:D9999",
+        type: "list",
+        formula1: `"${catNames.join(",")}"`,
+      }];
+    }
+
+    // Set column widths
+    ws["!cols"] = [{ wch: 30 }, { wch: 40 }, { wch: 10 }, { wch: 25 }];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Producten");
+    XLSX.writeFile(wb, "producten-template.xlsx");
+    toast({ title: "Template gedownload", description: "Vul de kolommen in en importeer het bestand." });
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -131,20 +196,39 @@ const Producten = () => {
   const handleImport = async () => {
     if (importData.length === 0) return;
     setImporting(true);
-    // Map columns: expects "naam" or "name", "beschrijving" or "description", "prijs" or "price"
-    const payload = importData.map((row) => ({
-      name: String(row.naam || row.name || row.Naam || row.Name || "").trim(),
-      description: String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim() || null,
-      price: parseFloat(String(row.prijs || row.price || row.Prijs || row.Price || "0").replace(",", ".")) || 0,
-      category_id: importCategoryId || null,
-      icon: String(row.icoon || row.icon || row.Icoon || row.Icon || "").trim() || null,
-    })).filter((p) => p.name);
 
-    if (payload.length === 0) { toast({ title: "Geen geldige producten gevonden", description: "Zorg dat je kolom 'naam' of 'name' hebt", variant: "destructive" }); setImporting(false); return; }
+    // Build category name → id lookup
+    const catMap = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c.id]));
+
+    const payload = importData.map((row) => {
+      const name = String(row.naam || row.name || row.Naam || row.Name || "").trim();
+      const catName = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
+      const matchedCatId = catMap.get(catName.toLowerCase()) || importCategoryId || null;
+
+      return {
+        name,
+        description: String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim() || null,
+        price: parseFloat(String(row.prijs || row.price || row.Prijs || row.Price || "0").replace(",", ".")) || 0,
+        category_id: matchedCatId,
+        icon: guessIcon(name),
+      };
+    }).filter((p) => p.name);
+
+    if (payload.length === 0) {
+      toast({ title: "Geen geldige producten gevonden", description: "Zorg dat je kolom 'naam' hebt", variant: "destructive" });
+      setImporting(false);
+      return;
+    }
 
     const { error } = await supabase.from("products").insert(payload);
-    if (error) { toast({ title: "Fout bij import", description: error.message, variant: "destructive" }); }
-    else { toast({ title: `${payload.length} producten geïmporteerd` }); setImportDialogOpen(false); setImportData([]); fetchData(); }
+    if (error) {
+      toast({ title: "Fout bij import", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `${payload.length} producten geïmporteerd`, description: "Icons zijn automatisch toegewezen." });
+      setImportDialogOpen(false);
+      setImportData([]);
+      fetchData();
+    }
     setImporting(false);
   };
 
@@ -343,21 +427,34 @@ const Producten = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Producten importeren vanuit Excel</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed bg-muted/50">
+              <Download className="h-5 w-5 text-muted-foreground shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Stap 1: Download het template</p>
+                <p className="text-xs text-muted-foreground">Excel bestand met categorie-dropdown en voorbeelddata</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                <Download className="mr-2 h-4 w-4" /> Template downloaden
+              </Button>
+            </div>
             <div className="grid gap-2">
-              <Label>Excel bestand (.xlsx, .xls, .csv)</Label>
+              <Label>Stap 2: Upload je ingevulde bestand</Label>
               <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
               <p className="text-xs text-muted-foreground">
-                Kolommen: <strong>naam</strong> (verplicht), <strong>beschrijving</strong>, <strong>prijs</strong>, <strong>icoon</strong> (Lucide icon naam)
+                Kolommen: <strong>naam</strong> (verplicht), <strong>beschrijving</strong>, <strong>prijs</strong>, <strong>categorie</strong> (naam van bestaande categorie)
               </p>
             </div>
             <div className="grid gap-2">
-              <Label>Categorie voor alle producten</Label>
+              <Label>Fallback categorie (als kolom 'categorie' leeg is)</Label>
               <Select value={importCategoryId} onValueChange={setImportCategoryId}>
-                <SelectTrigger><SelectValue placeholder="Geen (of kies categorie)" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Geen fallback categorie" /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">💡 <strong>Icons worden automatisch toegewezen</strong> op basis van de productnaam. Je hoeft geen icon-kolom in te vullen.</p>
             </div>
             {importData.length > 0 && (
               <div className="border rounded-lg overflow-auto max-h-64">
