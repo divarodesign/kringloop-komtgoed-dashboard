@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Receipt, FileText, TrendingUp } from "lucide-react";
 import type { Quote, Invoice } from "@/types/database";
 
@@ -29,65 +28,151 @@ const Financieel = () => {
   const totalPaid = invoices.filter(i => i.status === "betaald").reduce((s, i) => s + i.total_amount, 0);
   const totalOpen = totalInvoiced - totalPaid;
 
+  const statCards = [
+    { title: "Gefactureerd", value: formatPrice(totalInvoiced), icon: Receipt, bg: "bg-muted", color: "text-muted-foreground" },
+    { title: "Betaald", value: formatPrice(totalPaid), icon: TrendingUp, bg: "bg-primary/10", color: "text-primary" },
+    { title: "Openstaand", value: formatPrice(totalOpen), icon: FileText, bg: "bg-orange-500/10", color: "text-orange-500" },
+  ];
+
+  const tabs = [
+    { key: "offertes", label: "Offertes", count: quotes.length },
+    { key: "facturen", label: "Facturen", count: invoices.length },
+  ];
+
+  const renderQuoteItem = (q: Quote) => (
+    <div key={q.id} className="flex items-center justify-between p-3 bg-card rounded-xl border border-border/50 shadow-sm">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{(q.jobs as any)?.title || "—"}</p>
+        <p className="text-xs text-muted-foreground truncate">{(q.jobs as any)?.customers?.name || "—"}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{q.status}</Badge>
+          {q.quote_number && <span className="text-[10px] text-muted-foreground">{q.quote_number}</span>}
+        </div>
+      </div>
+      <span className="text-sm font-semibold shrink-0 ml-3">{formatPrice(q.total_amount)}</span>
+    </div>
+  );
+
+  const renderInvoiceItem = (inv: Invoice) => (
+    <div key={inv.id} className="flex items-center justify-between p-3 bg-card rounded-xl border border-border/50 shadow-sm">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{(inv.jobs as any)?.title || "—"}</p>
+        <p className="text-xs text-muted-foreground truncate">{(inv.jobs as any)?.customers?.name || "—"}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <Badge variant={inv.status === "betaald" ? "default" : "secondary"}
+            className={`text-[10px] px-1.5 py-0 ${inv.status === "betaald" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
+            {inv.status === "betaald" ? "Betaald" : "Onbetaald"}
+          </Badge>
+          {inv.invoice_number && <span className="text-[10px] text-muted-foreground">{inv.invoice_number}</span>}
+        </div>
+      </div>
+      <span className="text-sm font-semibold shrink-0 ml-3">{formatPrice(inv.total_amount)}</span>
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Financieel</h1>
-        <p className="text-muted-foreground">Offertes en facturen</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Totaal gefactureerd</CardTitle><Receipt className="h-5 w-5 text-muted-foreground" /></CardHeader><CardContent><p className="text-2xl font-bold">{formatPrice(totalInvoiced)}</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Betaald</CardTitle><TrendingUp className="h-5 w-5 text-primary" /></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{formatPrice(totalPaid)}</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Openstaand</CardTitle><FileText className="h-5 w-5 text-orange-500" /></CardHeader><CardContent><p className="text-2xl font-bold text-orange-500">{formatPrice(totalOpen)}</p></CardContent></Card>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Financieel</h1>
+        <p className="text-sm text-muted-foreground">Offertes en facturen</p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="offertes">Offertes ({quotes.length})</TabsTrigger>
-          <TabsTrigger value="facturen">Facturen ({invoices.length})</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Stat cards */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        {statCards.map((stat) => (
+          <Card key={stat.title} className="border-0 shadow-sm">
+            <CardContent className="p-3 sm:p-4">
+              <div className={`inline-flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-xl ${stat.bg} mb-1.5`}>
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              </div>
+              <p className="text-sm sm:text-xl font-bold leading-tight">{stat.value}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">{stat.title}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? <p className="text-center py-8 text-muted-foreground">Laden...</p> :
-          tab === "offertes" ? (
-            quotes.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nog geen offertes.</p> : (
-              <Table>
-                <TableHeader><TableRow><TableHead>Nummer</TableHead><TableHead>Klus</TableHead><TableHead>Klant</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Bedrag</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {quotes.map((q) => (
-                    <TableRow key={q.id}>
-                      <TableCell className="font-medium">{q.quote_number || "-"}</TableCell>
-                      <TableCell>{(q.jobs as any)?.title || "-"}</TableCell>
-                      <TableCell className="text-muted-foreground">{(q.jobs as any)?.customers?.name || "-"}</TableCell>
-                      <TableCell><Badge variant="secondary">{q.status}</Badge></TableCell>
-                      <TableCell className="text-right font-medium">{formatPrice(q.total_amount)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
-          ) : (
-            invoices.length === 0 ? <p className="text-center py-8 text-muted-foreground">Nog geen facturen.</p> : (
-              <Table>
-                <TableHeader><TableRow><TableHead>Nummer</TableHead><TableHead>Klus</TableHead><TableHead>Klant</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Bedrag</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {invoices.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.invoice_number || "-"}</TableCell>
-                      <TableCell>{(inv.jobs as any)?.title || "-"}</TableCell>
-                      <TableCell className="text-muted-foreground">{(inv.jobs as any)?.customers?.name || "-"}</TableCell>
-                      <TableCell><Badge variant={inv.status === "betaald" ? "default" : "secondary"} className={inv.status === "betaald" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}>{inv.status === "betaald" ? "Betaald" : "Onbetaald"}</Badge></TableCell>
-                      <TableCell className="text-right font-medium">{formatPrice(inv.total_amount)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
-          )}
-        </CardContent>
-      </Card>
+      {/* Tab chips */}
+      <div className="flex gap-2">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors touch-manipulation ${
+              tab === t.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {t.label} ({t.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
+        </div>
+      ) : tab === "offertes" ? (
+        quotes.length === 0 ? (
+          <div className="text-center py-12 text-sm text-muted-foreground">Nog geen offertes.</div>
+        ) : (
+          <>
+            {/* Mobile */}
+            <div className="sm:hidden space-y-2">
+              {quotes.map(renderQuoteItem)}
+            </div>
+            {/* Desktop */}
+            <Card className="hidden sm:block">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Nummer</TableHead><TableHead>Klus</TableHead><TableHead>Klant</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Bedrag</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {quotes.map((q) => (
+                      <TableRow key={q.id}>
+                        <TableCell className="font-medium">{q.quote_number || "-"}</TableCell>
+                        <TableCell>{(q.jobs as any)?.title || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{(q.jobs as any)?.customers?.name || "-"}</TableCell>
+                        <TableCell><Badge variant="secondary">{q.status}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{formatPrice(q.total_amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
+        )
+      ) : (
+        invoices.length === 0 ? (
+          <div className="text-center py-12 text-sm text-muted-foreground">Nog geen facturen.</div>
+        ) : (
+          <>
+            {/* Mobile */}
+            <div className="sm:hidden space-y-2">
+              {invoices.map(renderInvoiceItem)}
+            </div>
+            {/* Desktop */}
+            <Card className="hidden sm:block">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Nummer</TableHead><TableHead>Klus</TableHead><TableHead>Klant</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Bedrag</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {invoices.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">{inv.invoice_number || "-"}</TableCell>
+                        <TableCell>{(inv.jobs as any)?.title || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{(inv.jobs as any)?.customers?.name || "-"}</TableCell>
+                        <TableCell><Badge variant={inv.status === "betaald" ? "default" : "secondary"} className={inv.status === "betaald" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}>{inv.status === "betaald" ? "Betaald" : "Onbetaald"}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{formatPrice(inv.total_amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
+        )
+      )}
     </div>
   );
 };
