@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import AddressFields from "@/components/AddressFields";
 import type { Customer, Product, ProductCategory } from "@/types/database";
 
 const STEPS = ["Klant", "Type", "Producten", "Kosten", "Adres", "Overzicht"];
@@ -275,11 +276,14 @@ const NieuweKlus = () => {
                   <div className="grid gap-1.5"><Label className="text-xs">E-mail</Label><Input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} /></div>
                   <div className="grid gap-1.5"><Label className="text-xs">Telefoon</Label><Input value={customerForm.phone} onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} /></div>
                 </div>
-                <div className="grid gap-1.5"><Label className="text-xs">Adres</Label><Input value={customerForm.address} onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5"><Label className="text-xs">Postcode</Label><Input value={customerForm.postal_code} onChange={(e) => setCustomerForm({ ...customerForm, postal_code: e.target.value })} /></div>
-                  <div className="grid gap-1.5"><Label className="text-xs">Plaats</Label><Input value={customerForm.city} onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })} /></div>
-                </div>
+                <AddressFields
+                  address={customerForm.address}
+                  postalCode={customerForm.postal_code}
+                  city={customerForm.city}
+                  onAddressChange={(v) => setCustomerForm({ ...customerForm, address: v })}
+                  onPostalCodeChange={(v) => setCustomerForm({ ...customerForm, postal_code: v })}
+                  onCityChange={(v) => setCustomerForm({ ...customerForm, city: v })}
+                />
               </div>
             ) : (
               <div className="grid gap-1.5">
@@ -526,14 +530,14 @@ const NieuweKlus = () => {
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Werkadres & Planning</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
-            <div className="grid gap-1.5">
-              <Label className="text-xs">Werkadres</Label>
-              <Input value={workAddress} onChange={(e) => setWorkAddress(e.target.value)} placeholder="Straat en huisnummer" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5"><Label className="text-xs">Postcode</Label><Input value={workPostalCode} onChange={(e) => setWorkPostalCode(e.target.value)} /></div>
-              <div className="grid gap-1.5"><Label className="text-xs">Plaats</Label><Input value={workCity} onChange={(e) => setWorkCity(e.target.value)} /></div>
-            </div>
+            <AddressFields
+              address={workAddress}
+              postalCode={workPostalCode}
+              city={workCity}
+              onAddressChange={setWorkAddress}
+              onPostalCodeChange={setWorkPostalCode}
+              onCityChange={setWorkCity}
+            />
             <div className="border rounded-xl p-3 space-y-2 bg-muted/30">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">

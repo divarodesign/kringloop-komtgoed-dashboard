@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import AddressFields from "@/components/AddressFields";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -87,11 +88,14 @@ const Instellingen = () => {
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2 space-y-3">
           <div className="grid gap-1.5"><Label className="text-xs">Bedrijfsnaam</Label><Input value={companyInfo.name} onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })} /></div>
-          <div className="grid gap-1.5"><Label className="text-xs">Adres</Label><Input value={companyInfo.address} onChange={(e) => setCompanyInfo({ ...companyInfo, address: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5"><Label className="text-xs">Postcode</Label><Input value={companyInfo.postal_code} onChange={(e) => setCompanyInfo({ ...companyInfo, postal_code: e.target.value })} /></div>
-            <div className="grid gap-1.5"><Label className="text-xs">Plaats</Label><Input value={companyInfo.city} onChange={(e) => setCompanyInfo({ ...companyInfo, city: e.target.value })} /></div>
-          </div>
+          <AddressFields
+              address={companyInfo.address}
+              postalCode={companyInfo.postal_code}
+              city={companyInfo.city}
+              onAddressChange={(v) => setCompanyInfo({ ...companyInfo, address: v })}
+              onPostalCodeChange={(v) => setCompanyInfo({ ...companyInfo, postal_code: v })}
+              onCityChange={(v) => setCompanyInfo({ ...companyInfo, city: v })}
+            />
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5"><Label className="text-xs">Telefoon</Label><Input value={companyInfo.phone} onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })} /></div>
             <div className="grid gap-1.5"><Label className="text-xs">E-mail</Label><Input value={companyInfo.email} onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })} /></div>
