@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddressFields from "@/components/AddressFields";
@@ -33,6 +33,16 @@ interface SelectedProduct {
   unit_price: number;
 }
 
+interface Room {
+  id: string;
+  name: string;
+  products: SelectedProduct[];
+  expanded: boolean;
+  browsing: boolean; // true when viewing categories/products inside this room
+  activeCategoryId: string | null;
+  productSearch: string;
+}
+
 const renderLucideIcon = (name: string | null, className = "h-6 w-6") => {
   if (!name) return <Package className={className + " text-muted-foreground"} />;
   const LucideIcon = icons[name as keyof typeof icons];
@@ -50,10 +60,12 @@ const NieuweKlus = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Product picker sub-state
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [productSearch, setProductSearch] = useState("");
-  const [totalBarExpanded, setTotalBarExpanded] = useState(false);
+  // Room-based product selection
+  const [rooms, setRooms] = useState<Room[]>([
+    { id: crypto.randomUUID(), name: "Kamer 1", products: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }
+  ]);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editingRoomName, setEditingRoomName] = useState("");
 
   const [customerId, setCustomerId] = useState("");
   const [newCustomer, setNewCustomer] = useState(false);
@@ -61,7 +73,17 @@ const NieuweKlus = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [jobType, setJobType] = useState<"producten" | "ontruiming">("producten");
-  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
+  // selectedProducts is derived from rooms (flattened) for backward compat
+  const selectedProducts = useMemo(() => rooms.flatMap(r => r.products), [rooms]);
+  const setSelectedProducts = (updater: SelectedProduct[] | ((prev: SelectedProduct[]) => SelectedProduct[])) => {
+    // This is only used in sticky bar / step 4 delete — we update all rooms
+    const newProducts = typeof updater === 'function' ? updater(rooms.flatMap(r => r.products)) : updater;
+    // Rebuild rooms: clear all products and put remaining in first room
+    setRooms(prev => {
+      const first = prev[0];
+      return prev.map((r, i) => i === 0 ? { ...r, products: newProducts } : { ...r, products: [] });
+    });
+  };
   const [advisedPrice, setAdvisedPrice] = useState(0);
   const [customPrice, setCustomPrice] = useState("");
   const [travelKm, setTravelKm] = useState("");
@@ -102,63 +124,56 @@ const NieuweKlus = () => {
     });
   }, []);
 
-  // Products filtered by active category
-  const categoryProducts = useMemo(() => {
+  // Products filtered by category for a specific room
+  const getCategoryProducts = (catId: string | null, search: string) => {
     let filtered = products;
-    if (activeCategoryId) {
+    if (catId) {
       const productIds = categoryLinks
-        .filter(l => l.category_id === activeCategoryId)
+        .filter(l => l.category_id === catId)
         .map(l => l.product_id);
       filtered = products.filter(p =>
-        productIds.includes(p.id) || p.category_id === activeCategoryId
+        productIds.includes(p.id) || p.category_id === catId
       );
     }
-    if (productSearch) {
-      const q = productSearch.toLowerCase();
+    if (search) {
+      const q = search.toLowerCase();
       filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
     }
     return filtered;
-  }, [activeCategoryId, products, categoryLinks, productSearch]);
-
-  const getProductQuantity = (productId: string) => {
-    const sp = selectedProducts.find(p => p.product_id === productId);
-    return sp?.quantity || 0;
   };
 
-  // Track which products have been added to prevent rapid duplicate clicks
-  const addedProductsRef = useRef<Set<string>>(new Set());
+  const getRoomProductQuantity = (roomId: string, productId: string) => {
+    const room = rooms.find(r => r.id === roomId);
+    return room?.products.find(p => p.product_id === productId)?.quantity || 0;
+  };
 
-  // Keep ref in sync with state
-  useEffect(() => {
-    addedProductsRef.current = new Set(selectedProducts.map(p => p.product_id).filter(Boolean) as string[]);
-  }, [selectedProducts]);
-
-  const setProductQuantity = (product: Product, delta: number) => {
-    setSelectedProducts(prev => {
-      const existing = prev.find(p => p.product_id === product.id);
+  const setRoomProductQuantity = (roomId: string, product: Product, delta: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      const existing = r.products.find(p => p.product_id === product.id);
       if (existing) {
         const newQty = existing.quantity + delta;
-        if (newQty <= 0) {
-          return prev.filter(p => p.product_id !== product.id);
-        }
-        return prev.map(p =>
-          p.product_id === product.id ? { ...p, quantity: newQty } : p
-        );
+        if (newQty <= 0) return { ...r, products: r.products.filter(p => p.product_id !== product.id) };
+        return { ...r, products: r.products.map(p => p.product_id === product.id ? { ...p, quantity: newQty } : p) };
       } else if (delta > 0) {
-        // Check ref to prevent duplicate additions from rapid clicks
-        if (addedProductsRef.current.has(product.id)) {
-          return prev;
-        }
-        addedProductsRef.current.add(product.id);
-        return [...prev, {
-          product_id: product.id,
-          description: product.name,
-          quantity: 1,
-          unit_price: product.price,
-        }];
+        return { ...r, products: [...r.products, { product_id: product.id, description: product.name, quantity: 1, unit_price: product.price }] };
       }
-      return prev;
-    });
+      return r;
+    }));
+  };
+
+  const addRoom = () => {
+    const nextNum = rooms.length + 1;
+    setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
+  };
+
+  const removeRoom = (roomId: string) => {
+    if (rooms.length <= 1) return;
+    setRooms(prev => prev.filter(r => r.id !== roomId));
+  };
+
+  const updateRoom = (roomId: string, updates: Partial<Room>) => {
+    setRooms(prev => prev.map(r => r.id === roomId ? { ...r, ...updates } : r));
   };
 
   // Recalculate advisedPrice whenever selectedProducts changes
@@ -369,142 +384,180 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Step 3: Producten selecteren via categorieën/cards */}
+      {/* Step 3: Producten selecteren per kamer */}
       {step === 2 && (
         <div className="space-y-3">
-          {!activeCategoryId ? (
-            <>
-              {/* Category cards grid */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-semibold">Categorieën</h2>
-                  <p className="text-xs text-muted-foreground">Kies een categorie om producten te selecteren</p>
-                </div>
-                {selectedProducts.length > 0 && (
-                  <Badge variant="secondary" className="text-xs">{selectedProducts.length} geselecteerd</Badge>
-                )}
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-                {categories.map(cat => {
-                  // Count selected products in this category
-                  const catProductIds = categoryLinks.filter(l => l.category_id === cat.id).map(l => l.product_id);
-                  const catProducts = products.filter(p => catProductIds.includes(p.id) || p.category_id === cat.id);
-                  const selectedInCat = selectedProducts.filter(sp => catProducts.some(cp => cp.id === sp.product_id));
-                  
-                  return (
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Kamers & Producten</h2>
+              <p className="text-xs text-muted-foreground">Voeg producten toe per kamer</p>
+            </div>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={addRoom}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Kamer toevoegen
+            </Button>
+          </div>
+
+          {rooms.map((room) => {
+            const roomTotal = room.products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
+            const roomCategoryProducts = getCategoryProducts(room.activeCategoryId, room.productSearch);
+
+            return (
+              <Card key={room.id} className="overflow-hidden">
+                {/* Room header */}
+                <button
+                  onClick={() => updateRoom(room.id, { expanded: !room.expanded, browsing: false })}
+                  className="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-accent/30 transition-colors touch-manipulation"
+                >
+                  <div className="flex items-center gap-2">
+                    {room.expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    <DoorOpen className="h-4 w-4 text-primary" />
+                    {editingRoomId === room.id ? (
+                      <Input
+                        value={editingRoomName}
+                        onChange={(e) => setEditingRoomName(e.target.value)}
+                        onBlur={() => { updateRoom(room.id, { name: editingRoomName || room.name }); setEditingRoomId(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { updateRoom(room.id, { name: editingRoomName || room.name }); setEditingRoomId(null); } }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-7 text-sm font-semibold w-40"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold">{room.name}</span>
+                    )}
                     <button
-                      key={cat.id}
-                      onClick={() => { setActiveCategoryId(cat.id); setProductSearch(""); }}
-                      className="flex flex-col items-center gap-1.5 p-3 sm:p-4 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all touch-manipulation active:scale-[0.95] relative shadow-sm"
+                      onClick={(e) => { e.stopPropagation(); setEditingRoomId(room.id); setEditingRoomName(room.name); }}
+                      className="p-1 rounded hover:bg-accent"
                     >
-                      {selectedInCat.length > 0 && (
-                        <div className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">
-                          {selectedInCat.reduce((s, p) => s + p.quantity, 0)}
-                        </div>
-                      )}
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-primary">
-                        {renderLucideIcon(cat.icon, "h-6 w-6 sm:h-7 sm:w-7")}
-                      </div>
-                      <span className="text-[10px] sm:text-xs font-medium text-center leading-tight line-clamp-2">{cat.name}</span>
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
                     </button>
-                  );
-                })}
-              </div>
-
-              {/* Selected products summary */}
-              {selectedProducts.length > 0 && (
-                <Card className="mt-3">
-                  <CardContent className="p-3 space-y-1.5">
-                    <p className="text-xs font-semibold">Geselecteerde producten</p>
-                    {selectedProducts.map((sp, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs">
-                        <span className="truncate flex-1">{sp.description} ×{sp.quantity}</span>
-                        <div className="flex items-center gap-2 ml-2">
-                          <span className="font-medium">{formatPrice(sp.quantity * sp.unit_price)}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedProducts(selectedProducts.filter((_, idx) => idx !== i))}>
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <p className="text-xs font-bold text-right border-t pt-1.5">Subtotaal: {formatPrice(productsTotal)}</p>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Product cards within category */}
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="h-8 text-xs shrink-0" onClick={() => { setActiveCategoryId(null); setProductSearch(""); }}>
-                  <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Terug naar categorieën
-                </Button>
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Zoek product..."
-                      value={productSearch}
-                      onChange={(e) => setProductSearch(e.target.value)}
-                      className="pl-8 h-7 text-xs"
-                    />
                   </div>
-                </div>
-              </div>
+                  <div className="flex items-center gap-2">
+                    {room.products.length > 0 && (
+                      <Badge variant="secondary" className="text-[10px]">{room.products.reduce((s, p) => s + p.quantity, 0)} items · {formatPrice(roomTotal)}</Badge>
+                    )}
+                    {rooms.length > 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); removeRoom(room.id); }} className="p-1 rounded hover:bg-destructive/10">
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    )}
+                  </div>
+                </button>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
-                {categoryProducts.map(product => {
-                  const qty = getProductQuantity(product.id);
-                  const isSelected = qty > 0;
-
-                    return (
-                    <div
-                      key={product.id}
-                      onClick={() => !isSelected && setProductQuantity(product, 1)}
-                      className={`flex flex-col items-center p-3 rounded-xl border transition-all shadow-sm cursor-pointer touch-manipulation active:scale-[0.97] ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50 bg-card"}`}
-                    >
-                      <div className="h-10 w-10 flex items-center justify-center text-primary mb-1.5">
-                        {renderLucideIcon(product.icon, "h-6 w-6")}
+                {/* Room content (expanded) */}
+                {room.expanded && (
+                  <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+                    {/* Products already in this room */}
+                    {room.products.length > 0 && (
+                      <div className="space-y-1.5">
+                        {room.products.map((sp, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs gap-2">
+                            <span className="truncate flex-1">{sp.description}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, -1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Minus className="h-3 w-3" /></button>
+                              <span className="w-5 text-center font-medium">{sp.quantity}</span>
+                              <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, 1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Plus className="h-3 w-3" /></button>
+                            </div>
+                            <span className="font-medium shrink-0 w-16 text-right">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                          </div>
+                        ))}
+                        <p className="text-xs font-bold text-right border-t pt-1.5">{formatPrice(roomTotal)}</p>
                       </div>
-                      <p className="text-[10px] sm:text-xs font-medium text-center leading-tight line-clamp-2 mb-0.5">{product.name}</p>
-                      {product.description && (
-                        <p className="text-[9px] text-muted-foreground text-center line-clamp-2 mb-1">{product.description}</p>
-                      )}
+                    )}
 
-                      {/* Quantity controls */}
-                      {isSelected ? (
-                        <div className="flex items-center gap-1 mt-auto" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => setProductQuantity(product, -1)}
-                            className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="text-sm font-bold w-6 text-center">{qty}</span>
-                          <button
-                            onClick={() => setProductQuantity(product, 1)}
-                            className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-auto h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                          <Plus className="h-4 w-4" />
-                        </div>
-                      )}
-
-                      <span className="text-[10px] text-muted-foreground mt-1">{formatPrice(product.price)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {categoryProducts.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">Geen producten in deze categorie</p>
-              )}
-            </>
-          )}
+                    {/* Add products button / category browser */}
+                    {!room.browsing ? (
+                      <Button variant="outline" size="sm" className="w-full h-9 text-xs" onClick={() => updateRoom(room.id, { browsing: true, activeCategoryId: null, productSearch: "" })}>
+                        <Plus className="mr-1.5 h-3.5 w-3.5" /> Producten toevoegen
+                      </Button>
+                    ) : (
+                      <div className="border rounded-xl p-3 space-y-3 bg-muted/20">
+                        {!room.activeCategoryId ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold">Kies een categorie</p>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => updateRoom(room.id, { browsing: false })}>Sluiten</Button>
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {categories.map(cat => {
+                                const catProductIds = categoryLinks.filter(l => l.category_id === cat.id).map(l => l.product_id);
+                                const catProds = products.filter(p => catProductIds.includes(p.id) || p.category_id === cat.id);
+                                const selectedInCat = room.products.filter(sp => catProds.some(cp => cp.id === sp.product_id));
+                                return (
+                                  <button
+                                    key={cat.id}
+                                    onClick={() => updateRoom(room.id, { activeCategoryId: cat.id, productSearch: "" })}
+                                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all touch-manipulation active:scale-[0.95] relative shadow-sm"
+                                  >
+                                    {selectedInCat.length > 0 && (
+                                      <div className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">
+                                        {selectedInCat.reduce((s, p) => s + p.quantity, 0)}
+                                      </div>
+                                    )}
+                                    <div className="h-8 w-8 flex items-center justify-center text-primary">
+                                      {renderLucideIcon(cat.icon, "h-5 w-5")}
+                                    </div>
+                                    <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">{cat.name}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" className="h-7 text-xs shrink-0" onClick={() => updateRoom(room.id, { activeCategoryId: null, productSearch: "" })}>
+                                <ArrowLeft className="mr-1 h-3 w-3" /> Categorieën
+                              </Button>
+                              <div className="flex-1 relative">
+                                <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                  placeholder="Zoek product..."
+                                  value={room.productSearch}
+                                  onChange={(e) => updateRoom(room.id, { productSearch: e.target.value })}
+                                  className="pl-8 h-7 text-xs"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {roomCategoryProducts.map(product => {
+                                const qty = getRoomProductQuantity(room.id, product.id);
+                                const isSelected = qty > 0;
+                                return (
+                                  <div
+                                    key={product.id}
+                                    onClick={() => !isSelected && setRoomProductQuantity(room.id, product, 1)}
+                                    className={`flex flex-col items-center p-2.5 rounded-xl border transition-all shadow-sm cursor-pointer touch-manipulation active:scale-[0.97] ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50 bg-card"}`}
+                                  >
+                                    <div className="h-8 w-8 flex items-center justify-center text-primary mb-1">
+                                      {renderLucideIcon(product.icon, "h-5 w-5")}
+                                    </div>
+                                    <p className="text-[10px] font-medium text-center leading-tight line-clamp-2 mb-0.5">{product.name}</p>
+                                    {isSelected ? (
+                                      <div className="flex items-center gap-1 mt-auto" onClick={(e) => e.stopPropagation()}>
+                                        <button onClick={() => setRoomProductQuantity(room.id, product, -1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Minus className="h-3 w-3" /></button>
+                                        <span className="text-xs font-bold w-5 text-center">{qty}</span>
+                                        <button onClick={() => setRoomProductQuantity(room.id, product, 1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Plus className="h-3 w-3" /></button>
+                                      </div>
+                                    ) : (
+                                      <div className="mt-auto h-7 w-7 rounded-lg bg-muted flex items-center justify-center"><Plus className="h-3.5 w-3.5" /></div>
+                                    )}
+                                    <span className="text-[10px] text-muted-foreground mt-0.5">{formatPrice(product.price)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {roomCategoryProducts.length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-4">Geen producten gevonden</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -634,16 +687,17 @@ const NieuweKlus = () => {
               <div><span className="text-xs text-muted-foreground">Planning:</span> <span className="text-xs font-medium">{isDirect ? "Direct" : scheduledDate || "-"}</span></div>
               {workAddress && <div className="sm:col-span-2"><span className="text-xs text-muted-foreground">Werkadres:</span> <span className="text-xs font-medium">{[workAddress, workPostalCode, workCity].filter(Boolean).join(", ")}</span></div>}
             </div>
-            {selectedProducts.length > 0 && (
-              <div className="space-y-1.5 border-t pt-3">
-                {selectedProducts.map((p, i) => (
-                  <div key={i} className="flex justify-between text-xs">
+            {rooms.filter(r => r.products.length > 0).map(room => (
+              <div key={room.id} className="space-y-1.5 border-t pt-3">
+                <p className="text-xs font-semibold flex items-center gap-1.5"><DoorOpen className="h-3.5 w-3.5 text-primary" /> {room.name}</p>
+                {room.products.map((p, i) => (
+                  <div key={i} className="flex justify-between text-xs pl-5">
                     <span className="truncate flex-1">{p.description} ×{p.quantity}</span>
                     <span className="font-medium ml-2">{formatPrice(p.quantity * p.unit_price)}</span>
                   </div>
                 ))}
               </div>
-            )}
+            ))}
             <div className="border-t pt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-xs text-muted-foreground">Voorrijkosten</span><span className="text-xs">{formatPrice(travelCost)}</span></div>
               <div className="flex justify-between"><span className="text-xs text-muted-foreground">{jobType === "ontruiming" ? "Ontruiming" : "Producten"}</span><span className="text-xs">{formatPrice(subtotal)}</span></div>
@@ -660,57 +714,26 @@ const NieuweKlus = () => {
         {/* Running total bar - visible during product selection steps */}
         {selectedProducts.length > 0 && (step === 1 || step === 2 || step === 3) && (
           <div className="bg-card border-t sm:rounded-xl sm:border sm:mb-2 sm:mx-0">
-            <button
-              onClick={() => setTotalBarExpanded(!totalBarExpanded)}
-              className="w-full px-4 py-2 flex items-center justify-between touch-manipulation"
-            >
+            <div className="w-full px-4 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-[10px]">{selectedProducts.reduce((s, p) => s + p.quantity, 0)} items</Badge>
-                <span className="text-xs text-muted-foreground">{selectedProducts.length} product(en)</span>
+                <span className="text-xs text-muted-foreground">{rooms.filter(r => r.products.length > 0).length} kamer(s)</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold">{formatPrice(productsTotal)}</span>
-                <ArrowRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${totalBarExpanded ? "rotate-90" : "-rotate-90"}`} />
-              </div>
-            </button>
-            {totalBarExpanded && (
-              <div className="px-4 pb-3 space-y-1.5 border-t pt-2 max-h-48 overflow-y-auto">
-                {selectedProducts.map((sp, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2">
-                    <span className="text-xs truncate flex-1">{sp.description}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="outline" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.map((p, idx) => idx === i ? { ...p, quantity: Math.max(1, p.quantity - 1) } : p)); }}>
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="text-xs w-5 text-center font-medium">{sp.quantity}</span>
-                      <Button variant="outline" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.map((p, idx) => idx === i ? { ...p, quantity: p.quantity + 1 } : p)); }}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <span className="text-xs font-medium shrink-0 w-16 text-right">{formatPrice(sp.quantity * sp.unit_price)}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.filter((_, idx) => idx !== i)); }}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
+              <span className="text-sm font-bold">{formatPrice(productsTotal)}</span>
+            </div>
           </div>
         )}
 
         {/* Navigation buttons */}
         <div className="flex justify-between bg-background/95 backdrop-blur py-3 px-4 sm:static sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0">
           <Button variant="outline" size="sm" onClick={() => {
-            if (step === 2 && activeCategoryId) {
-              setActiveCategoryId(null);
-              setProductSearch("");
-            } else if (step > 0) {
+            if (step > 0) {
               setStep(step - 1);
             } else {
               navigate("/admin/klussen");
             }
           }}>
-            <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : step === 2 && activeCategoryId ? "Categorieën" : "Vorige"}
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : "Vorige"}
           </Button>
           {step < STEPS.length - 1 ? (
             <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
