@@ -409,6 +409,29 @@ const NieuweKlus = () => {
             <div className="pt-2">
               <p className="text-sm font-semibold mb-1">Werkadres</p>
               <p className="text-xs text-muted-foreground mb-3">Vul het adres in waar de klus uitgevoerd wordt</p>
+              <div className="flex items-center gap-2 mb-3">
+                <Checkbox
+                  id="sameAsCustomer"
+                  checked={false}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      if (newCustomer) {
+                        setWorkAddress(customerForm.address);
+                        setWorkPostalCode(customerForm.postal_code);
+                        setWorkCity(customerForm.city);
+                      } else {
+                        const customer = customers.find(c => c.id === customerId);
+                        if (customer) {
+                          setWorkAddress(customer.address || "");
+                          setWorkPostalCode(customer.postal_code || "");
+                          setWorkCity(customer.city || "");
+                        }
+                      }
+                    }
+                  }}
+                />
+                <Label htmlFor="sameAsCustomer" className="text-xs">Zelfde als klantadres</Label>
+              </div>
               <AddressFields
                 address={workAddress}
                 postalCode={workPostalCode}
