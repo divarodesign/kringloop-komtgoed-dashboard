@@ -628,19 +628,27 @@ const Producten = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {Object.keys(importData[0]).map((key) => (
-                        <TableHead key={key} className="text-xs">{key}</TableHead>
-                      ))}
+                      <TableHead className="text-xs">Naam</TableHead>
+                      <TableHead className="text-xs">Beschrijving</TableHead>
+                      <TableHead className="text-xs">Prijs</TableHead>
+                      <TableHead className="text-xs">Categorie</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {importData.slice(0, 10).map((row, i) => (
-                      <TableRow key={i}>
-                        {Object.values(row).map((val: any, j) => (
-                          <TableCell key={j} className="text-xs py-1">{String(val)}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
+                    {importData.slice(0, 10).map((row, i) => {
+                      const naam = String(row.naam || row.name || row.Naam || row.Name || "").trim();
+                      const beschrijving = String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim();
+                      const prijs = String(row.prijs || row.price || row.Prijs || row.Price || "0").replace(",", ".");
+                      const categorie = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
+                      return (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs py-1">{naam}</TableCell>
+                          <TableCell className="text-xs py-1">{beschrijving}</TableCell>
+                          <TableCell className="text-xs py-1">€ {parseFloat(prijs).toFixed(2)}</TableCell>
+                          <TableCell className="text-xs py-1">{categorie || <span className="text-muted-foreground">-</span>}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 {importData.length > 10 && (
