@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen, Camera, X } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddressFields from "@/components/AddressFields";
@@ -33,12 +33,18 @@ interface SelectedProduct {
   unit_price: number;
 }
 
+interface RoomPhoto {
+  file: File;
+  preview: string;
+}
+
 interface Room {
   id: string;
   name: string;
   products: SelectedProduct[];
+  photos: RoomPhoto[];
   expanded: boolean;
-  browsing: boolean; // true when viewing categories/products inside this room
+  browsing: boolean;
   activeCategoryId: string | null;
   productSearch: string;
 }
@@ -62,7 +68,7 @@ const NieuweKlus = () => {
 
   // Room-based product selection
   const [rooms, setRooms] = useState<Room[]>([
-    { id: crypto.randomUUID(), name: "Kamer 1", products: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }
+    { id: crypto.randomUUID(), name: "Kamer 1", products: [], photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }
   ]);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingRoomName, setEditingRoomName] = useState("");
@@ -164,7 +170,7 @@ const NieuweKlus = () => {
 
   const addRoom = () => {
     const nextNum = rooms.length + 1;
-    setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
+    setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
   };
 
   const removeRoom = (roomId: string) => {
@@ -174,6 +180,24 @@ const NieuweKlus = () => {
 
   const updateRoom = (roomId: string, updates: Partial<Room>) => {
     setRooms(prev => prev.map(r => r.id === roomId ? { ...r, ...updates } : r));
+  };
+
+  const handleRoomPhotos = (roomId: string, files: FileList | null) => {
+    if (!files) return;
+    const newPhotos: RoomPhoto[] = Array.from(files).map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setRooms(prev => prev.map(r => r.id === roomId ? { ...r, photos: [...r.photos, ...newPhotos] } : r));
+  };
+
+  const removeRoomPhoto = (roomId: string, index: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      const photo = r.photos[index];
+      if (photo) URL.revokeObjectURL(photo.preview);
+      return { ...r, photos: r.photos.filter((_, i) => i !== index) };
+    }));
   };
 
   // Recalculate advisedPrice whenever selectedProducts changes
@@ -239,6 +263,23 @@ const NieuweKlus = () => {
       await supabase.from("job_items").insert(
         selectedProducts.map((p) => ({ job_id: job.id, product_id: p.product_id, description: p.description, quantity: p.quantity, unit_price: p.unit_price }))
       );
+    }
+    // Upload room photos
+    const roomsWithPhotos = rooms.filter(r => r.photos.length > 0);
+    for (const room of roomsWithPhotos) {
+      for (const photo of room.photos) {
+        const ext = photo.file.name.split('.').pop();
+        const path = `${job.id}/${room.id}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from("room-photos").upload(path, photo.file);
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from("room-photos").getPublicUrl(path);
+          await supabase.from("job_room_photos").insert({
+            job_id: job.id,
+            room_name: room.name,
+            photo_url: urlData.publicUrl,
+          });
+        }
+      }
     }
     toast({ title: "Klus aangemaakt!" });
     navigate("/admin/klussen");
@@ -553,6 +594,32 @@ const NieuweKlus = () => {
                         )}
                       </div>
                     )}
+
+                    {/* Photo upload section */}
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold flex items-center gap-1.5"><Camera className="h-3.5 w-3.5 text-muted-foreground" /> Foto's</p>
+                        <label className="cursor-pointer">
+                          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleRoomPhotos(room.id, e.target.files)} />
+                          <span className="text-xs text-primary hover:underline">+ Foto toevoegen</span>
+                        </label>
+                      </div>
+                      {room.photos.length > 0 && (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {room.photos.map((photo, pi) => (
+                            <div key={pi} className="relative group rounded-lg overflow-hidden aspect-square border">
+                              <img src={photo.preview} alt={`Foto ${pi + 1}`} className="w-full h-full object-cover" />
+                              <button
+                                onClick={() => removeRoomPhoto(room.id, pi)}
+                                className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 )}
               </Card>
@@ -566,23 +633,38 @@ const NieuweKlus = () => {
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Kosten & Korting</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
-            {/* Product summary with delete option */}
-            {selectedProducts.length > 0 && (
-              <div className="border rounded-xl p-3 space-y-2">
-                <p className="text-xs font-semibold">Geselecteerde producten</p>
-                {selectedProducts.map((sp, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2">
-                    <span className="text-xs truncate flex-1">{sp.description}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">×{sp.quantity}</span>
-                    <span className="text-xs font-medium shrink-0">{formatPrice(sp.quantity * sp.unit_price)}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setSelectedProducts(prev => prev.filter((_, idx) => idx !== i))}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-                <p className="text-xs font-bold text-right border-t pt-1.5">Subtotaal producten: {formatPrice(productsTotal)}</p>
-              </div>
-            )}
+            {/* Products grouped by room */}
+            {rooms.filter(r => r.products.length > 0).map(room => {
+              const roomTotal = room.products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
+              return (
+                <div key={room.id} className="border rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-semibold flex items-center gap-1.5"><DoorOpen className="h-3.5 w-3.5 text-primary" /> {room.name}</p>
+                  {room.products.map((sp, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 pl-5">
+                      <span className="text-xs truncate flex-1">{sp.description}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">×{sp.quantity}</span>
+                      <span className="text-xs font-medium shrink-0">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => {
+                        setRooms(prev => prev.map(r => r.id === room.id ? { ...r, products: r.products.filter((_, idx) => idx !== i) } : r));
+                      }}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                  <p className="text-xs font-bold text-right border-t pt-1.5">Subtotaal {room.name}: {formatPrice(roomTotal)}</p>
+                  {room.photos.length > 0 && (
+                    <div className="grid grid-cols-4 gap-1.5 pt-1">
+                      {room.photos.map((photo, pi) => (
+                        <div key={pi} className="rounded overflow-hidden aspect-square border">
+                          <img src={photo.preview} alt={`${room.name} foto ${pi + 1}`} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <p className="text-xs font-bold text-right">Totaal producten: {formatPrice(productsTotal)}</p>
 
             {jobType === "ontruiming" && selectedProducts.length > 0 && (
               <div className="border rounded-xl p-3 space-y-2 bg-muted/30">
