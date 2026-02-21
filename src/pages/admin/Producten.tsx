@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
-import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download, AlertTriangle } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IconPicker from "@/components/IconPicker";
@@ -19,9 +20,19 @@ import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import type { Product, ProductCategory } from "@/types/database";
 
+interface MultiCatProduct {
+  existingProductId: string;
+  name: string;
+  existingCategories: string[];
+  newCategory: string;
+  newCategoryId: string;
+  selected: boolean;
+}
+
 const Producten = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [productCategoryLinks, setProductCategoryLinks] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -29,6 +40,9 @@ const Producten = () => {
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [bulkCatDialogOpen, setBulkCatDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [multiCatDialogOpen, setMultiCatDialogOpen] = useState(false);
+  const [multiCatProducts, setMultiCatProducts] = useState<MultiCatProduct[]>([]);
+  const [pendingNewProducts, setPendingNewProducts] = useState<any[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState({ name: "", description: "", price: "", category_id: "", icon: "" });
@@ -40,21 +54,35 @@ const Producten = () => {
   const { toast } = useToast();
 
   const fetchData = async () => {
-    const [{ data: prods }, { data: cats }] = await Promise.all([
+    const [{ data: prods }, { data: cats }, { data: links }] = await Promise.all([
       supabase.from("products").select("*, product_categories(*)").order("name"),
       supabase.from("product_categories").select("*").order("name"),
+      supabase.from("product_category_links").select("*, product_categories(*)"),
     ]);
     setProducts((prods as any[]) || []);
     setCategories((cats as ProductCategory[]) || []);
+    setProductCategoryLinks(links || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
 
+  // Get all categories for a product (from junction table)
+  const getCategoriesForProduct = (productId: string) => {
+    return productCategoryLinks
+      .filter((l) => l.product_id === productId)
+      .map((l) => l.product_categories)
+      .filter(Boolean);
+  };
+
   const filtered = products.filter((p) => {
     const matchSearch = [p.name, p.description].some((v) => v?.toLowerCase().includes(search.toLowerCase()));
-    const matchCat = activeCategory === "all" || p.category_id === activeCategory;
-    return matchSearch && matchCat;
+    if (activeCategory === "all") return matchSearch;
+    // Check both legacy category_id and junction table
+    const linkedCatIds = productCategoryLinks
+      .filter((l) => l.product_id === p.id)
+      .map((l) => l.category_id);
+    return matchSearch && (p.category_id === activeCategory || linkedCatIds.includes(activeCategory));
   });
 
   const openNew = () => { setEditing(null); setForm({ name: "", description: "", price: "", category_id: "", icon: "" }); setDialogOpen(true); };
@@ -70,10 +98,21 @@ const Producten = () => {
     if (editing) {
       const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
       if (error) { toast({ title: "Fout", description: error.message, variant: "destructive" }); return; }
+      // Update category link
+      if (form.category_id) {
+        await supabase.from("product_category_links").upsert(
+          { product_id: editing.id, category_id: form.category_id },
+          { onConflict: "product_id,category_id" }
+        );
+      }
       toast({ title: "Product bijgewerkt" });
     } else {
-      const { error } = await supabase.from("products").insert(payload);
+      const { data, error } = await supabase.from("products").insert(payload).select().single();
       if (error) { toast({ title: "Fout", description: error.message, variant: "destructive" }); return; }
+      // Create category link
+      if (data && form.category_id) {
+        await supabase.from("product_category_links").insert({ product_id: data.id, category_id: form.category_id });
+      }
       toast({ title: "Product toegevoegd" });
     }
     setDialogOpen(false);
@@ -111,7 +150,7 @@ const Producten = () => {
     fetchData();
   };
 
-  // Auto-icon mapping: keywords → Lucide icon names
+  // Auto-icon mapping
   const iconKeywords: Record<string, string[]> = {
     Sofa: ["bank", "sofa", "zetel", "couch"],
     Bed: ["bed", "matras", "slaap"],
@@ -147,29 +186,21 @@ const Producten = () => {
     for (const [icon, keywords] of Object.entries(iconKeywords)) {
       if (keywords.some((kw) => lower.includes(kw))) return icon;
     }
-    return "Package"; // default icon
+    return "Package";
   };
 
   const downloadTemplate = async () => {
     const catNames = categories.map((c) => c.name);
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Producten");
-
-    // Headers
     ws.columns = [
       { header: "naam", key: "naam", width: 30 },
       { header: "beschrijving", key: "beschrijving", width: 40 },
       { header: "prijs", key: "prijs", width: 12 },
       { header: "categorie", key: "categorie", width: 25 },
     ];
-
-    // Style header row
     ws.getRow(1).font = { bold: true };
-
-    // Example row
     ws.addRow({ naam: "Voorbeeld product", beschrijving: "Beschrijving hier", prijs: 25.00, categorie: catNames[0] || "" });
-
-    // Add category dropdown validation to column D (rows 2-500)
     if (catNames.length > 0) {
       for (let i = 2; i <= 500; i++) {
         ws.getCell(`D${i}`).dataValidation = {
@@ -179,7 +210,6 @@ const Producten = () => {
         };
       }
     }
-
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
@@ -213,17 +243,27 @@ const Producten = () => {
     if (importData.length === 0) return;
     setImporting(true);
 
-    // Build category name → id lookup
     const catMap = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c.id]));
+    const catIdToName = new Map(categories.map((c) => [c.id, c.name]));
 
-    // Existing product names for duplicate detection
-    const existingNames = new Set(products.map((p) => p.name.toLowerCase().trim()));
+    // Build existing product lookup: name → { id, category_ids }
+    const existingProductMap = new Map<string, { id: string; categoryIds: string[] }>();
+    for (const p of products) {
+      const key = p.name.toLowerCase().trim();
+      const linkedCatIds = productCategoryLinks
+        .filter((l) => l.product_id === p.id)
+        .map((l) => l.category_id as string);
+      // Include legacy category_id
+      if (p.category_id && !linkedCatIds.includes(p.category_id)) {
+        linkedCatIds.push(p.category_id);
+      }
+      existingProductMap.set(key, { id: p.id, categoryIds: linkedCatIds });
+    }
 
     const allRows = importData.map((row) => {
       const name = String(row.naam || row.name || row.Naam || row.Name || "").trim();
       const catName = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
       const matchedCatId = catMap.get(catName.toLowerCase()) || importCategoryId || null;
-
       return {
         name,
         description: String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim() || null,
@@ -233,34 +273,114 @@ const Producten = () => {
       };
     }).filter((p) => p.name);
 
-    // Filter out duplicates (by name, case-insensitive)
-    const seen = new Set<string>();
-    const payload = allRows.filter((p) => {
-      const key = p.name.toLowerCase();
-      if (existingNames.has(key) || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    // Separate: truly new products vs existing products with a new category
+    const newProducts: typeof allRows = [];
+    const multiCatItems: MultiCatProduct[] = [];
+    const seenNew = new Set<string>();
 
-    const skipped = allRows.length - payload.length;
+    for (const row of allRows) {
+      const key = row.name.toLowerCase().trim();
+      const existing = existingProductMap.get(key);
 
-    if (payload.length === 0) {
-      toast({ title: "Geen nieuwe producten gevonden", description: skipped > 0 ? `${skipped} dubbele producten overgeslagen` : "Zorg dat je kolom 'naam' hebt", variant: "destructive" });
+      if (existing) {
+        // Product exists - check if this is a new category
+        if (row.category_id && !existing.categoryIds.includes(row.category_id)) {
+          // Already in multiCatItems?
+          const alreadyAdded = multiCatItems.find((m) => m.existingProductId === existing.id && m.newCategoryId === row.category_id);
+          if (!alreadyAdded) {
+            multiCatItems.push({
+              existingProductId: existing.id,
+              name: row.name,
+              existingCategories: existing.categoryIds.map((id) => catIdToName.get(id) || "Onbekend"),
+              newCategory: catIdToName.get(row.category_id) || "Onbekend",
+              newCategoryId: row.category_id,
+              selected: true,
+            });
+          }
+        }
+        // Skip creating duplicate product
+      } else {
+        if (!seenNew.has(key)) {
+          seenNew.add(key);
+          newProducts.push(row);
+        }
+      }
+    }
+
+    // If there are multi-category products, show confirmation dialog first
+    if (multiCatItems.length > 0) {
+      setMultiCatProducts(multiCatItems);
+      setPendingNewProducts(newProducts);
+      setMultiCatDialogOpen(true);
       setImporting(false);
       return;
     }
 
-    const { error } = await supabase.from("products").insert(payload);
-    if (error) {
-      toast({ title: "Fout bij import", description: error.message, variant: "destructive" });
-    } else {
-      const desc = skipped > 0 ? `${skipped} dubbele overgeslagen. Icons automatisch toegewezen.` : "Icons zijn automatisch toegewezen.";
-      toast({ title: `${payload.length} producten geïmporteerd`, description: desc });
-      setImportDialogOpen(false);
-      setImportData([]);
-      fetchData();
+    // No multi-cat items, proceed with normal import
+    await executeImport(newProducts, []);
+  };
+
+  const executeImport = async (newProducts: any[], categoryLinks: { productId: string; categoryId: string }[]) => {
+    setImporting(true);
+    let importedCount = 0;
+    let linkedCount = 0;
+
+    // Insert new products
+    if (newProducts.length > 0) {
+      const { data: inserted, error } = await supabase.from("products").insert(newProducts).select();
+      if (error) {
+        toast({ title: "Fout bij import", description: error.message, variant: "destructive" });
+        setImporting(false);
+        return;
+      }
+      importedCount = inserted?.length || 0;
+
+      // Create category links for new products
+      if (inserted) {
+        const newLinks = inserted
+          .filter((p) => p.category_id)
+          .map((p) => ({ product_id: p.id, category_id: p.category_id }));
+        if (newLinks.length > 0) {
+          await supabase.from("product_category_links").insert(newLinks);
+        }
+      }
     }
+
+    // Create additional category links for existing products
+    if (categoryLinks.length > 0) {
+      const links = categoryLinks.map((l) => ({ product_id: l.productId, category_id: l.categoryId }));
+      const { error } = await supabase.from("product_category_links").insert(links);
+      if (error) {
+        toast({ title: "Fout bij categorie-links", description: error.message, variant: "destructive" });
+      } else {
+        linkedCount = links.length;
+      }
+    }
+
+    const parts: string[] = [];
+    if (importedCount > 0) parts.push(`${importedCount} nieuwe producten`);
+    if (linkedCount > 0) parts.push(`${linkedCount} extra categorie-koppelingen`);
+
+    toast({
+      title: parts.length > 0 ? parts.join(", ") : "Geen wijzigingen",
+      description: importedCount > 0 ? "Icons automatisch toegewezen." : undefined,
+    });
+
+    setImportDialogOpen(false);
+    setMultiCatDialogOpen(false);
+    setImportData([]);
+    setMultiCatProducts([]);
+    setPendingNewProducts([]);
+    fetchData();
     setImporting(false);
+  };
+
+  const handleConfirmMultiCat = async () => {
+    const selectedLinks = multiCatProducts
+      .filter((m) => m.selected)
+      .map((m) => ({ productId: m.existingProductId, categoryId: m.newCategoryId }));
+
+    await executeImport(pendingNewProducts, selectedLinks);
   };
 
   const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
@@ -296,11 +416,17 @@ const Producten = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle categorieën ({products.length})</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({products.filter((p) => p.category_id === c.id).length})
-                  </SelectItem>
-                ))}
+                {categories.map((c) => {
+                  const count = products.filter((p) => {
+                    const linkedCatIds = productCategoryLinks.filter((l) => l.product_id === p.id).map((l) => l.category_id);
+                    return p.category_id === c.id || linkedCatIds.includes(c.id);
+                  }).length;
+                  return (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} ({count})
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -325,38 +451,48 @@ const Producten = () => {
                 <TableRow>
                   <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead>Categorie</TableHead>
+                  <TableHead>Categorieën</TableHead>
                   <TableHead className="text-right">Prijs</TableHead>
                   <TableHead className="w-[100px]">Acties</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{renderIcon(p.icon)}</TableCell>
-                    <TableCell>
-                      <div>
-                        <span className="font-medium">{p.name}</span>
-                        {p.description && <p className="text-sm text-muted-foreground truncate max-w-xs">{p.description}</p>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {p.product_categories ? (
-                        <Badge variant="secondary" className="gap-1">
-                          {renderIcon(p.product_categories.icon)}
-                          {p.product_categories.name}
-                        </Badge>
-                      ) : <span className="text-muted-foreground text-sm">-</span>}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{formatPrice(p.price)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filtered.map((p: any) => {
+                  const linkedCats = getCategoriesForProduct(p.id);
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell>{renderIcon(p.icon)}</TableCell>
+                      <TableCell>
+                        <div>
+                          <span className="font-medium">{p.name}</span>
+                          {p.description && <p className="text-sm text-muted-foreground truncate max-w-xs">{p.description}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {linkedCats.length > 0 ? linkedCats.map((cat: any) => (
+                            <Badge key={cat.id} variant="secondary" className="gap-1">
+                              {renderIcon(cat.icon)}
+                              {cat.name}
+                            </Badge>
+                          )) : p.product_categories ? (
+                            <Badge variant="secondary" className="gap-1">
+                              {renderIcon(p.product_categories.icon)}
+                              {p.product_categories.name}
+                            </Badge>
+                          ) : <span className="text-muted-foreground text-sm">-</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatPrice(p.price)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -485,7 +621,7 @@ const Producten = () => {
               </Select>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs text-muted-foreground">💡 <strong>Icons worden automatisch toegewezen</strong> op basis van de productnaam. Je hoeft geen icon-kolom in te vullen.</p>
+              <p className="text-xs text-muted-foreground">💡 <strong>Dubbele producten</strong> worden niet opnieuw aangemaakt. Als een product al bestaat maar in een andere categorie staat, kun je het aan meerdere categorieën koppelen.</p>
             </div>
             {importData.length > 0 && (
               <div className="border rounded-lg overflow-auto max-h-64">
@@ -517,6 +653,78 @@ const Producten = () => {
             <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportData([]); }}>Annuleren</Button>
             <Button onClick={handleImport} disabled={importData.length === 0 || importing}>
               {importing ? "Importeren..." : `${importData.length} producten importeren`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Multi-category confirmation dialog */}
+      <Dialog open={multiCatDialogOpen} onOpenChange={(open) => { if (!open) { setMultiCatDialogOpen(false); setMultiCatProducts([]); setPendingNewProducts([]); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Producten in meerdere categorieën
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              De volgende producten bestaan al maar staan in het Excel bestand bij een andere categorie.
+              Vink aan welke producten je aan de extra categorie wilt koppelen.
+            </p>
+            <div className="border rounded-lg overflow-auto max-h-80">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]"></TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Huidige categorie(ën)</TableHead>
+                    <TableHead>Nieuwe categorie</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {multiCatProducts.map((item, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Checkbox
+                          checked={item.selected}
+                          onCheckedChange={(checked) => {
+                            setMultiCatProducts((prev) =>
+                              prev.map((m, j) => j === i ? { ...m, selected: !!checked } : m)
+                            );
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {item.existingCategories.map((cat, j) => (
+                            <Badge key={j} variant="secondary">{cat}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10">
+                          + {item.newCategory}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {pendingNewProducts.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Daarnaast worden <strong>{pendingNewProducts.length} nieuwe producten</strong> aangemaakt.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMultiCatDialogOpen(false); setMultiCatProducts([]); setPendingNewProducts([]); }}>
+              Annuleren
+            </Button>
+            <Button onClick={handleConfirmMultiCat} disabled={importing}>
+              {importing ? "Verwerken..." : "Bevestigen & importeren"}
             </Button>
           </DialogFooter>
         </DialogContent>
