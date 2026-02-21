@@ -15,7 +15,7 @@ const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Klanten", url: "/admin/klanten", icon: Users },
   { title: "Klussen", url: "/admin/klussen", icon: Briefcase },
-  { title: "Planbord", url: "/admin/planbord", icon: Calendar },
+  { title: "Agenda", url: "/admin/agenda", icon: Calendar },
   { title: "Opleveringen", url: "/admin/opleveringen", icon: ClipboardCheck },
   { title: "Producten", url: "/admin/producten", icon: Package },
   { title: "Financieel", url: "/admin/financieel", icon: Receipt },
