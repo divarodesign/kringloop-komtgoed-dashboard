@@ -57,6 +57,8 @@ const Agenda = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newAppt, setNewAppt] = useState({ title: "", description: "", date: "", time: "", customer_id: "" });
+  const [newCustomer, setNewCustomer] = useState(false);
+  const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "" });
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -160,20 +162,29 @@ const Agenda = () => {
 
   const openAddDialog = (preDate?: string) => {
     setNewAppt({ title: "", description: "", date: preDate || toDateStr(currentDate), time: "", customer_id: "" });
+    setNewCustomer(false);
+    setCustomerForm({ name: "", phone: "", email: "" });
     setShowAddDialog(true);
   };
 
   const saveAppointment = async () => {
     if (!newAppt.title || !newAppt.date) { toast({ title: "Vul titel en datum in", variant: "destructive" }); return; }
+    let custId = newAppt.customer_id || null;
+    if (newCustomer) {
+      if (!customerForm.name) { toast({ title: "Vul klantnaam in", variant: "destructive" }); return; }
+      const { data, error } = await supabase.from("customers").insert(customerForm).select().single();
+      if (error) { toast({ title: "Fout bij klant aanmaken", description: error.message, variant: "destructive" }); return; }
+      custId = data.id;
+      setCustomers((prev) => [...prev, data as Customer].sort((a, b) => a.name.localeCompare(b.name)));
+    }
     const { error } = await supabase.from("appointments").insert({
       title: newAppt.title, description: newAppt.description || null,
       appointment_date: newAppt.date, appointment_time: newAppt.time || null,
-      customer_id: newAppt.customer_id || null, created_by: user?.id || null,
+      customer_id: custId, created_by: user?.id || null,
     });
     if (error) { toast({ title: "Fout", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Afspraak toegevoegd" });
     setShowAddDialog(false);
-    // Refresh
     const { data } = await supabase.from("appointments").select("*, customers(*)").gte("appointment_date", rangeStart).lte("appointment_date", rangeEnd).order("appointment_date");
     setAppointments((data as Appointment[]) || []);
   };
@@ -449,15 +460,28 @@ const Agenda = () => {
               </div>
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-xs">Klant (optioneel)</Label>
-              <Select value={newAppt.customer_id} onValueChange={(v) => setNewAppt({ ...newAppt, customer_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecteer klant" /></SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Klant (optioneel)</Label>
+                <Button variant="link" size="sm" className="text-xs h-auto p-0" onClick={() => { setNewCustomer(!newCustomer); setNewAppt({ ...newAppt, customer_id: "" }); }}>
+                  {newCustomer ? "Bestaande klant" : "+ Nieuwe klant"}
+                </Button>
+              </div>
+              {newCustomer ? (
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-border">
+                  <Input placeholder="Naam *" value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} />
+                  <Input placeholder="Telefoon" value={customerForm.phone} onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} />
+                  <Input placeholder="E-mail" value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} />
+                </div>
+              ) : (
+                <Select value={newAppt.customer_id} onValueChange={(v) => setNewAppt({ ...newAppt, customer_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecteer klant" /></SelectTrigger>
+                  <SelectContent>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="grid gap-1.5">
               <Label className="text-xs">Omschrijving</Label>
