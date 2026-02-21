@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Eye, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Job } from "@/types/database";
 
@@ -73,22 +74,19 @@ const Klussen = () => {
         </Button>
       </div>
 
-      {/* Status filter - horizontally scrollable chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {statusFilterOptions.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => setStatusFilter(opt.key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors touch-manipulation ${
-              statusFilter === opt.key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {opt.label} ({opt.count})
-          </button>
-        ))}
-      </div>
+      {/* Status filter dropdown */}
+      <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <SelectTrigger className="w-[220px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {statusFilterOptions.map((opt) => (
+            <SelectItem key={opt.key} value={opt.key}>
+              {opt.label} ({opt.count})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Search */}
       <div className="relative">
