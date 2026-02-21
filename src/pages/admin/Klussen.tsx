@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, ChevronRight, MapPin } from "lucide-react";
+import { Plus, Search, ChevronRight, MapPin, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Job, JobItem } from "@/types/database";
 
@@ -52,6 +53,15 @@ const Klussen = () => {
   };
 
   useEffect(() => { fetchJobs(); }, []);
+
+  const deleteJob = async (e: React.MouseEvent, jobId: string) => {
+    e.stopPropagation();
+    await supabase.from("job_items").delete().eq("job_id", jobId);
+    await supabase.from("extra_sales").delete().eq("job_id", jobId);
+    const { error } = await supabase.from("jobs").delete().eq("id", jobId);
+    if (error) toast({ title: "Fout bij verwijderen", description: error.message, variant: "destructive" });
+    else { toast({ title: "Klus verwijderd" }); fetchJobs(); }
+  };
 
   const getJobTotal = (job: Job) => {
     const items = jobItems.filter(i => i.job_id === job.id);
@@ -155,9 +165,25 @@ const Klussen = () => {
                     </span>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 flex items-center gap-2">
                   <p className="text-sm font-semibold">{formatPrice(getJobTotal(j))}</p>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto mt-1" />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Klus verwijderen?</AlertDialogTitle>
+                        <AlertDialogDescription>Weet je zeker dat je "{j.title}" wilt verwijderen?</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                        <AlertDialogAction onClick={(e) => deleteJob(e, j.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Verwijderen</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </button>
             ))}
@@ -192,7 +218,23 @@ const Klussen = () => {
                       <TableCell className="text-sm text-muted-foreground">{j.is_direct ? "Direct" : formatDate(j.scheduled_date)}</TableCell>
                       <TableCell className="text-right font-medium">{formatPrice(getJobTotal(j))}</TableCell>
                       <TableCell>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Klus verwijderen?</AlertDialogTitle>
+                              <AlertDialogDescription>Weet je zeker dat je "{j.title}" wilt verwijderen?</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                              <AlertDialogAction onClick={(e) => deleteJob(e, j.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Verwijderen</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))}
