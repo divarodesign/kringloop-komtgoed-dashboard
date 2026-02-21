@@ -53,6 +53,7 @@ const NieuweKlus = () => {
   // Product picker sub-state
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState("");
+  const [totalBarExpanded, setTotalBarExpanded] = useState(false);
 
   const [customerId, setCustomerId] = useState("");
   const [newCustomer, setNewCustomer] = useState(false);
@@ -634,12 +635,34 @@ const NieuweKlus = () => {
       <div className="fixed bottom-0 left-0 right-0 z-40 sm:static sm:z-auto">
         {/* Running total bar - visible during product selection steps */}
         {selectedProducts.length > 0 && (step === 1 || step === 2 || step === 3) && (
-          <div className="bg-card border-t px-4 py-2 flex items-center justify-between sm:rounded-xl sm:border sm:mb-2 sm:mx-0">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-[10px]">{selectedProducts.reduce((s, p) => s + p.quantity, 0)} items</Badge>
-              <span className="text-xs text-muted-foreground">{selectedProducts.length} product(en)</span>
-            </div>
-            <span className="text-sm font-bold">{formatPrice(productsTotal)}</span>
+          <div className="bg-card border-t sm:rounded-xl sm:border sm:mb-2 sm:mx-0">
+            <button
+              onClick={() => setTotalBarExpanded(!totalBarExpanded)}
+              className="w-full px-4 py-2 flex items-center justify-between touch-manipulation"
+            >
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-[10px]">{selectedProducts.reduce((s, p) => s + p.quantity, 0)} items</Badge>
+                <span className="text-xs text-muted-foreground">{selectedProducts.length} product(en)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold">{formatPrice(productsTotal)}</span>
+                <ArrowRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${totalBarExpanded ? "rotate-90" : "-rotate-90"}`} />
+              </div>
+            </button>
+            {totalBarExpanded && (
+              <div className="px-4 pb-3 space-y-1.5 border-t pt-2 max-h-48 overflow-y-auto">
+                {selectedProducts.map((sp, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <span className="text-xs truncate flex-1">{sp.description}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">×{sp.quantity}</span>
+                    <span className="text-xs font-medium shrink-0">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.filter((_, idx) => idx !== i)); }}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
