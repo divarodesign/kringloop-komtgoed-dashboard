@@ -18,95 +18,43 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    // Use the official Dutch government PDOK Locatieserver API (free, no key needed, always accurate)
+    const query = encodeURIComponent(`${postcode} ${huisnummer}`);
+    const url = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${query}&fq=type:adres&rows=1`;
+    
+    console.log("PDOK lookup URL:", url);
 
-    // Use tool calling for structured output instead of asking for JSON in prompt
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `Je bent een Nederlands adres-lookup systeem. Gegeven een Nederlandse postcode en huisnummer, geef je de EXACTE straatnaam en plaatsnaam terug. Gebruik je kennis van het Nederlandse postcodesysteem. Elke Nederlandse postcode (4 cijfers + 2 letters) correspondeert met een specifieke straat in een specifieke plaats. Geef ALLEEN de straatnaam terug (zonder huisnummer).`
-          },
-          {
-            role: "user",
-            content: `Wat is het adres voor postcode ${postcode}, huisnummer ${huisnummer}? Geef de straatnaam (zonder huisnummer) en plaatsnaam.`
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_address",
-              description: "Return the street name and city for the given Dutch postal code and house number.",
-              parameters: {
-                type: "object",
-                properties: {
-                  straat: { type: "string", description: "De straatnaam zonder huisnummer" },
-                  stad: { type: "string", description: "De plaatsnaam/stad" },
-                },
-                required: ["straat", "stad"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "return_address" } },
-      }),
+    const response = await fetch(url, {
+      headers: { "Accept": "application/json" },
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Te veel verzoeken, probeer het later opnieuw" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Tegoed onvoldoende" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
+      console.error("PDOK API error:", response.status, t);
+      return new Response(JSON.stringify({ error: "Adres API fout" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    
-    // Extract from tool call response
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      const addressData = JSON.parse(toolCall.function.arguments);
-      console.log("Address found:", addressData);
-      return new Response(JSON.stringify(addressData), {
+    const docs = data?.response?.docs;
+
+    if (!docs || docs.length === 0) {
+      return new Response(JSON.stringify({ error: "Adres niet gevonden" }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fallback: try parsing content as JSON
-    const content = data.choices?.[0]?.message?.content || "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const addressData = JSON.parse(jsonMatch[0]);
-      return new Response(JSON.stringify(addressData), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const doc = docs[0];
+    // PDOK returns: straatnaam, woonplaatsnaam, postcode, huisnummer etc.
+    const straat = doc.straatnaam || "";
+    const stad = doc.woonplaatsnaam || "";
 
-    return new Response(JSON.stringify({ error: "Kon adres niet verwerken" }), {
-      status: 500,
+    console.log("Address found:", { straat, stad, score: doc.score });
+
+    return new Response(JSON.stringify({ straat, stad }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
