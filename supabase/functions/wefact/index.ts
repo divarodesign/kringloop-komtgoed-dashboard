@@ -144,12 +144,43 @@ Deno.serve(async (req) => {
     const debtorCode = await findOrCreateDebtor(customer);
 
     if (action === "create_quote") {
-      // Build invoice lines for quote
-      const lines = (jobItems || []).map((item: any) => ({
-        Description: item.description,
-        Number: item.quantity,
-        PriceExcl: item.unit_price,
-      }));
+      // Group items by room
+      const roomGroups: Record<string, any[]> = {};
+      (jobItems || []).forEach((item: any) => {
+        const room = item.room_name || "Overig";
+        if (!roomGroups[room]) roomGroups[room] = [];
+        roomGroups[room].push(item);
+      });
+
+      const lines: any[] = [];
+      const roomNames = Object.keys(roomGroups);
+      const hasRooms = roomNames.length > 1 || (roomNames.length === 1 && roomNames[0] !== "Overig");
+
+      if (hasRooms) {
+        for (const roomName of roomNames) {
+          // Add room header as a line with 0 price
+          lines.push({
+            Description: `--- ${roomName} ---`,
+            Number: 0,
+            PriceExcl: 0,
+          });
+          for (const item of roomGroups[roomName]) {
+            lines.push({
+              Description: item.description,
+              Number: item.quantity,
+              PriceExcl: item.unit_price,
+            });
+          }
+        }
+      } else {
+        for (const item of (jobItems || [])) {
+          lines.push({
+            Description: (item as any).description,
+            Number: (item as any).quantity,
+            PriceExcl: (item as any).unit_price,
+          });
+        }
+      }
 
       // Add travel cost
       if (job.travel_cost > 0) {
@@ -171,56 +202,38 @@ Deno.serve(async (req) => {
 
       // For ontruiming with custom price, replace product lines with single line
       if (job.job_type === "ontruiming" && job.custom_price) {
-        const ontruimingLines = [
-          {
-            Description: "Ontruiming",
-            Number: 1,
-            PriceExcl: job.custom_price,
-          },
-        ];
-        // Keep travel & extra costs
-        if (job.travel_cost > 0) {
-          ontruimingLines.push({
-            Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`,
-            Number: 1,
-            PriceExcl: job.travel_cost,
-          });
-        }
-        if ((job.extra_costs || 0) > 0) {
-          ontruimingLines.push({
-            Description: job.extra_costs_description || "Overige kosten",
-            Number: 1,
-            PriceExcl: job.extra_costs,
-          });
-        }
         lines.length = 0;
-        lines.push(...ontruimingLines);
+        lines.push({ Description: "Ontruiming", Number: 1, PriceExcl: job.custom_price });
+        if (job.travel_cost > 0) lines.push({ Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`, Number: 1, PriceExcl: job.travel_cost });
+        if ((job.extra_costs || 0) > 0) lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceExcl: job.extra_costs });
       }
 
-      // Apply discount as negative line
-      if (job.discount_value && job.discount_value > 0) {
-        const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-        const subtotal = job.job_type === "ontruiming" ? (job.custom_price || job.advised_price || itemsTotal) : itemsTotal;
-        const discountAmount = job.discount_type === "percentage"
-          ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
-          : job.discount_value;
-        if (discountAmount > 0) {
-          lines.push({
-            Description: `Korting${job.discount_type === "percentage" ? ` (${job.discount_value}%)` : ""}`,
-            Number: 1,
-            PriceExcl: -discountAmount,
-          });
-        }
-      }
-
-      const quoteResult = await wefactRequest("invoice", "add", {
+      // Build pricequote params
+      const today = new Date().toISOString().split("T")[0];
+      const quoteParams: Record<string, unknown> = {
         DebtorCode: debtorCode,
-        InvoiceLines: lines,
-        SaveAsConcept: "yes",
-      });
+        Date: today,
+        Description: job.title,
+        Term: 30,
+        PriceQuoteLines: lines,
+      };
 
-      const quoteNumber = quoteResult.invoice?.InvoiceCode || null;
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * l.PriceExcl, 0);
+      // Apply discount at quote level if percentage
+      if (job.discount_value && job.discount_value > 0 && job.discount_type === "percentage") {
+        quoteParams.Discount = job.discount_value;
+      } else if (job.discount_value && job.discount_value > 0 && job.discount_type === "fixed") {
+        // Add as negative line
+        lines.push({
+          Description: "Korting",
+          Number: 1,
+          PriceExcl: -job.discount_value,
+        });
+      }
+
+      const quoteResult = await wefactRequest("pricequote", "add", quoteParams);
+
+      const quoteNumber = quoteResult.pricequote?.PriceQuoteCode || null;
+      const totalAmount = lines.filter((l: any) => l.Number > 0).reduce((s: number, l: any) => s + l.Number * l.PriceExcl, 0);
 
       // Save quote in our DB
       await supabase.from("quotes").insert({
@@ -234,13 +247,12 @@ Deno.serve(async (req) => {
       await supabase.from("jobs").update({ status: "offerte_verstuurd" }).eq("id", job_id);
 
       return new Response(
-        JSON.stringify({ success: true, quote_number: quoteNumber, wefact_id: quoteResult.invoice?.Identifier }),
+        JSON.stringify({ success: true, quote_number: quoteNumber, wefact_id: quoteResult.pricequote?.Identifier }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (action === "send_quote") {
-      // Find the quote for this job
       const { data: quote } = await supabase
         .from("quotes")
         .select("*")
@@ -251,8 +263,8 @@ Deno.serve(async (req) => {
 
       if (!quote?.quote_number) throw new Error("Geen offerte gevonden om te versturen");
 
-      await wefactRequest("invoice", "sendbyemail", {
-        InvoiceCode: quote.quote_number,
+      await wefactRequest("pricequote", "sendbyemail", {
+        PriceQuoteCode: quote.quote_number,
       });
 
       await supabase.from("quotes").update({ status: "verstuurd", sent_at: new Date().toISOString() }).eq("id", quote.id);
