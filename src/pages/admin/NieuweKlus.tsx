@@ -816,8 +816,9 @@ const NieuweKlus = () => {
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-[10px]">{selectedProducts.reduce((s, p) => s + p.quantity, 0)} items</Badge>
                 <span className="text-xs text-muted-foreground">{rooms.filter(r => r.products.length > 0).length} kamer(s)</span>
+                {travelCost > 0 && <span className="text-xs text-muted-foreground">+ {formatPrice(travelCost)} voorrijkosten</span>}
               </div>
-              <span className="text-sm font-bold">{formatPrice(productsTotal)}</span>
+              <span className="text-sm font-bold">{formatPrice(productsTotal + travelCost)}</span>
             </div>
           </div>
         )}
