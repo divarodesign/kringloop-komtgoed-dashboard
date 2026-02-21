@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Eye } from "lucide-react";
+import { Plus, Search, Eye, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Job } from "@/types/database";
 
@@ -52,71 +51,125 @@ const Klussen = () => {
     return matchSearch && matchStatus;
   });
 
-  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("nl-NL") : "-";
+  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "-";
+
+  const statusFilterOptions = [
+    { key: "all", label: "Alle", count: jobs.length },
+    ...Object.entries(statusLabels).map(([key, label]) => ({
+      key, label, count: jobs.filter((j) => j.status === key).length,
+    })),
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Klussen</h1>
-          <p className="text-muted-foreground">Overzicht van alle klussen en aanvragen</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Klussen</h1>
+          <p className="text-sm text-muted-foreground">Overzicht van alle klussen</p>
         </div>
-        <Button onClick={() => navigate("/admin/klussen/nieuw")}><Plus className="mr-2 h-4 w-4" /> Nieuwe klus</Button>
+        <Button size="sm" onClick={() => navigate("/admin/klussen/nieuw")}>
+          <Plus className="mr-1.5 h-4 w-4" /> <span className="hidden sm:inline">Nieuwe klus</span><span className="sm:hidden">Nieuw</span>
+        </Button>
       </div>
 
-      <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList>
-          <TabsTrigger value="all">Alle ({jobs.length})</TabsTrigger>
-          {Object.entries(statusLabels).map(([key, label]) => (
-            <TabsTrigger key={key} value={key}>{label} ({jobs.filter((j) => j.status === key).length})</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {/* Status filter - horizontally scrollable chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {statusFilterOptions.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setStatusFilter(opt.key)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors touch-manipulation ${
+              statusFilter === opt.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {opt.label} ({opt.count})
+          </button>
+        ))}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Zoek klussen..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Zoek klussen..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      {/* Count */}
+      <p className="text-xs text-muted-foreground">{filtered.length} klus{filtered.length !== 1 ? "sen" : ""}</p>
+
+      {/* List */}
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-sm text-muted-foreground">
+          {search ? "Geen resultaten." : "Nog geen klussen."}
+        </div>
+      ) : (
+        <>
+          {/* Mobile card view */}
+          <div className="sm:hidden space-y-2">
+            {filtered.map((j) => (
+              <button
+                key={j.id}
+                onClick={() => navigate(`/admin/klussen/${j.id}`)}
+                className="w-full flex items-center gap-3 p-3 bg-card rounded-xl border border-border/50 shadow-sm active:scale-[0.98] transition-transform touch-manipulation text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{j.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">{j.customers?.name || "—"}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${statusColors[j.status] || ""}`}>
+                      {statusLabels[j.status] || j.status}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">
+                      {j.is_direct ? "Direct" : formatDate(j.scheduled_date)}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-center py-8 text-muted-foreground">Laden...</p>
-          ) : filtered.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">{search ? "Geen resultaten." : "Nog geen klussen."}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Klus</TableHead>
-                  <TableHead>Klant</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Datum</TableHead>
-                  <TableHead className="w-[80px]">Acties</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((j) => (
-                  <TableRow key={j.id}>
-                    <TableCell className="font-medium">{j.title}</TableCell>
-                    <TableCell className="text-muted-foreground">{j.customers?.name || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={statusColors[j.status] || ""}>{statusLabels[j.status] || j.status}</Badge>
-                    </TableCell>
-                    <TableCell className="capitalize text-sm text-muted-foreground">{j.job_type}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{j.is_direct ? "Direct" : formatDate(j.scheduled_date)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/klussen/${j.id}`)}><Eye className="h-4 w-4" /></Button>
-                    </TableCell>
+
+          {/* Desktop table */}
+          <Card className="hidden sm:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Klus</TableHead>
+                    <TableHead>Klant</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Datum</TableHead>
+                    <TableHead className="w-[80px]">Acties</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((j) => (
+                    <TableRow key={j.id}>
+                      <TableCell className="font-medium">{j.title}</TableCell>
+                      <TableCell className="text-muted-foreground">{j.customers?.name || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={statusColors[j.status] || ""}>{statusLabels[j.status] || j.status}</Badge>
+                      </TableCell>
+                      <TableCell className="capitalize text-sm text-muted-foreground">{j.job_type}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{j.is_direct ? "Direct" : formatDate(j.scheduled_date)}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/klussen/${j.id}`)}><Eye className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };

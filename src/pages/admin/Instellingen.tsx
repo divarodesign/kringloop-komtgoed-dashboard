@@ -52,65 +52,65 @@ const Instellingen = () => {
   if (loading) return <p className="text-center py-12 text-muted-foreground">Laden...</p>;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-4 sm:space-y-6 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Instellingen</h1>
-        <p className="text-muted-foreground">Bedrijfsinstellingen en configuratie</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Instellingen</h1>
+        <p className="text-sm text-muted-foreground">Bedrijfsinstellingen en configuratie</p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Voorrijkosten</CardTitle>
-          <CardDescription>Configureer de tariefzones</CardDescription>
+        <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-2">
+          <CardTitle className="text-base">Voorrijkosten</CardTitle>
+          <CardDescription className="text-xs">Configureer de tariefzones</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2"><Label>Zone 1 max km</Label><Input type="number" value={travelCosts.zone_1_max_km} onChange={(e) => setTravelCosts({ ...travelCosts, zone_1_max_km: parseInt(e.target.value) || 0 })} /></div>
-            <div className="grid gap-2"><Label>Zone 1 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_1_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_1_price: parseFloat(e.target.value) || 0 })} /></div>
+        <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5"><Label className="text-xs">Zone 1 max km</Label><Input type="number" value={travelCosts.zone_1_max_km} onChange={(e) => setTravelCosts({ ...travelCosts, zone_1_max_km: parseInt(e.target.value) || 0 })} /></div>
+            <div className="grid gap-1.5"><Label className="text-xs">Zone 1 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_1_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_1_price: parseFloat(e.target.value) || 0 })} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2"><Label>Zone 2 max km</Label><Input type="number" value={travelCosts.zone_2_max_km} onChange={(e) => setTravelCosts({ ...travelCosts, zone_2_max_km: parseInt(e.target.value) || 0 })} /></div>
-            <div className="grid gap-2"><Label>Zone 2 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_2_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_2_price: parseFloat(e.target.value) || 0 })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5"><Label className="text-xs">Zone 2 max km</Label><Input type="number" value={travelCosts.zone_2_max_km} onChange={(e) => setTravelCosts({ ...travelCosts, zone_2_max_km: parseInt(e.target.value) || 0 })} /></div>
+            <div className="grid gap-1.5"><Label className="text-xs">Zone 2 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_2_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_2_price: parseFloat(e.target.value) || 0 })} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div></div>
-            <div className="grid gap-2"><Label>Zone 3 prijs (€) (meer dan zone 2)</Label><Input type="number" step="0.01" value={travelCosts.zone_3_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_3_price: parseFloat(e.target.value) || 0 })} /></div>
+            <div className="grid gap-1.5"><Label className="text-xs">Zone 3 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_3_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_3_price: parseFloat(e.target.value) || 0 })} /></div>
           </div>
-          <Button onClick={saveTravelCosts}>Opslaan</Button>
+          <Button size="sm" onClick={saveTravelCosts} className="w-full sm:w-auto">Opslaan</Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Bedrijfsinformatie</CardTitle>
-          <CardDescription>Voor op offertes en opleveringen</CardDescription>
+        <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-2">
+          <CardTitle className="text-base">Bedrijfsinformatie</CardTitle>
+          <CardDescription className="text-xs">Voor op offertes en opleveringen</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2"><Label>Bedrijfsnaam</Label><Input value={companyInfo.name} onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })} /></div>
-          <div className="grid gap-2"><Label>Adres</Label><Input value={companyInfo.address} onChange={(e) => setCompanyInfo({ ...companyInfo, address: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2"><Label>Postcode</Label><Input value={companyInfo.postal_code} onChange={(e) => setCompanyInfo({ ...companyInfo, postal_code: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>Plaats</Label><Input value={companyInfo.city} onChange={(e) => setCompanyInfo({ ...companyInfo, city: e.target.value })} /></div>
+        <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2 space-y-3">
+          <div className="grid gap-1.5"><Label className="text-xs">Bedrijfsnaam</Label><Input value={companyInfo.name} onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })} /></div>
+          <div className="grid gap-1.5"><Label className="text-xs">Adres</Label><Input value={companyInfo.address} onChange={(e) => setCompanyInfo({ ...companyInfo, address: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5"><Label className="text-xs">Postcode</Label><Input value={companyInfo.postal_code} onChange={(e) => setCompanyInfo({ ...companyInfo, postal_code: e.target.value })} /></div>
+            <div className="grid gap-1.5"><Label className="text-xs">Plaats</Label><Input value={companyInfo.city} onChange={(e) => setCompanyInfo({ ...companyInfo, city: e.target.value })} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2"><Label>Telefoon</Label><Input value={companyInfo.phone} onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>E-mail</Label><Input value={companyInfo.email} onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5"><Label className="text-xs">Telefoon</Label><Input value={companyInfo.phone} onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })} /></div>
+            <div className="grid gap-1.5"><Label className="text-xs">E-mail</Label><Input value={companyInfo.email} onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2"><Label>KVK-nummer</Label><Input value={companyInfo.kvk} onChange={(e) => setCompanyInfo({ ...companyInfo, kvk: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>BTW-nummer</Label><Input value={companyInfo.btw} onChange={(e) => setCompanyInfo({ ...companyInfo, btw: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5"><Label className="text-xs">KVK-nummer</Label><Input value={companyInfo.kvk} onChange={(e) => setCompanyInfo({ ...companyInfo, kvk: e.target.value })} /></div>
+            <div className="grid gap-1.5"><Label className="text-xs">BTW-nummer</Label><Input value={companyInfo.btw} onChange={(e) => setCompanyInfo({ ...companyInfo, btw: e.target.value })} /></div>
           </div>
-          <Button onClick={saveCompanyInfo}>Opslaan</Button>
+          <Button size="sm" onClick={saveCompanyInfo} className="w-full sm:w-auto">Opslaan</Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Wachtwoord wijzigen</CardTitle>
+        <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-2">
+          <CardTitle className="text-base">Wachtwoord wijzigen</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2"><Label>Nieuw wachtwoord</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimaal 6 tekens" /></div>
-          <Button onClick={changePassword}>Wachtwoord wijzigen</Button>
+        <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2 space-y-3">
+          <div className="grid gap-1.5"><Label className="text-xs">Nieuw wachtwoord</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimaal 6 tekens" /></div>
+          <Button size="sm" onClick={changePassword} className="w-full sm:w-auto">Wachtwoord wijzigen</Button>
         </CardContent>
       </Card>
     </div>
