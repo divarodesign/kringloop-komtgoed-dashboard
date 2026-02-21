@@ -29,7 +29,7 @@ interface MultiCatProduct {
   selected: boolean;
 }
 
-type ImportRowStatus = 'new' | 'duplicate' | 'multi_cat';
+type ImportRowStatus = 'new' | 'duplicate' | 'multi_cat' | 'new_extra_cat';
 
 interface AnalyzedRow {
   name: string;
@@ -251,7 +251,9 @@ const Producten = () => {
       existingProductMap.set(key, { id: p.id, categoryIds: linkedCatIds });
     }
 
-    const seenNew = new Set<string>();
+    // Track new products we've seen in this import (with their categories)
+    const seenNew = new Map<string, Set<string>>(); // name -> set of category_ids
+
     const rows: AnalyzedRow[] = data.map((row) => {
       const name = String(row.naam || row.name || row.Naam || row.Name || "").trim();
       const catName = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
@@ -261,8 +263,9 @@ const Producten = () => {
       const categoryLabel = catName || (importCategoryId ? catIdToName.get(importCategoryId) || "" : "");
 
       if (!name) return null as any;
+      const key = name.toLowerCase().trim();
 
-      const existing = existingProductMap.get(name.toLowerCase().trim());
+      const existing = existingProductMap.get(key);
 
       if (existing) {
         if (matchedCatId && !existing.categoryIds.includes(matchedCatId)) {
@@ -280,7 +283,19 @@ const Producten = () => {
         };
       }
 
-      if (seenNew.has(name.toLowerCase().trim())) {
+      // New product - check if we've already seen it in this import
+      const seenCats = seenNew.get(key);
+      if (seenCats) {
+        // Already seen this product name - it's an extra category for a new product
+        if (matchedCatId && !seenCats.has(matchedCatId)) {
+          seenCats.add(matchedCatId);
+          return {
+            name, description, price, category: categoryLabel, category_id: matchedCatId,
+            status: 'new_extra_cat' as ImportRowStatus,
+            icon: guessIcon(name),
+          };
+        }
+        // Same product, same category = true duplicate
         return {
           name, description, price, category: categoryLabel, category_id: matchedCatId,
           status: 'duplicate' as ImportRowStatus,
@@ -288,7 +303,10 @@ const Producten = () => {
         };
       }
 
-      seenNew.add(name.toLowerCase().trim());
+      // First time seeing this product
+      const catSet = new Set<string>();
+      if (matchedCatId) catSet.add(matchedCatId);
+      seenNew.set(key, catSet);
       return {
         name, description, price, category: categoryLabel, category_id: matchedCatId,
         status: 'new' as ImportRowStatus,
@@ -341,9 +359,10 @@ const Producten = () => {
     }
 
     const newRows = analyzedRows.filter((r) => r.status === 'new');
+    const newExtraCatRows = analyzedRows.filter((r) => r.status === 'new_extra_cat');
     const multiCatRows = analyzedRows.filter((r) => r.status === 'multi_cat');
 
-    // If multi-cat items exist, show confirmation dialog
+    // If multi-cat items exist (existing products needing new categories), show confirmation dialog
     if (multiCatRows.length > 0) {
       const multiCatItems: MultiCatProduct[] = [];
       const seenKeys = new Set<string>();
@@ -372,15 +391,15 @@ const Producten = () => {
       return;
     }
 
-    // No multi-cat, just import new products
+    // No multi-cat for existing products, just import new products + their extra categories
     const payload = newRows.map((r) => ({
       name: r.name, description: r.description || null, price: r.price,
       category_id: r.category_id, icon: r.icon,
     }));
-    await executeImport(payload, []);
+    await executeImport(payload, [], newExtraCatRows);
   };
 
-  const executeImport = async (newProducts: any[], categoryLinks: { productId: string; categoryId: string }[]) => {
+  const executeImport = async (newProducts: any[], categoryLinks: { productId: string; categoryId: string }[], newExtraCatRows: AnalyzedRow[] = []) => {
     setImporting(true);
     let importedCount = 0;
     let linkedCount = 0;
@@ -395,13 +414,24 @@ const Producten = () => {
       }
       importedCount = inserted?.length || 0;
 
-      // Create category links for new products
+      // Create category links for new products (primary category)
       if (inserted) {
         const newLinks = inserted
           .filter((p) => p.category_id)
           .map((p) => ({ product_id: p.id, category_id: p.category_id }));
+
+        // Also add extra category links for new products that appear multiple times in the Excel
+        for (const extraRow of newExtraCatRows) {
+          if (!extraRow.category_id) continue;
+          const matchedProduct = inserted.find((p) => p.name.toLowerCase().trim() === extraRow.name.toLowerCase().trim());
+          if (matchedProduct) {
+            newLinks.push({ product_id: matchedProduct.id, category_id: extraRow.category_id });
+          }
+        }
+
         if (newLinks.length > 0) {
           await supabase.from("product_category_links").insert(newLinks);
+          linkedCount += newExtraCatRows.filter((r) => r.category_id).length;
         }
       }
     }
@@ -440,7 +470,8 @@ const Producten = () => {
       .filter((m) => m.selected)
       .map((m) => ({ productId: m.existingProductId, categoryId: m.newCategoryId }));
 
-    await executeImport(pendingNewProducts, selectedLinks);
+    const newExtraCatRows = analyzedRows.filter((r) => r.status === 'new_extra_cat');
+    await executeImport(pendingNewProducts, selectedLinks, newExtraCatRows);
   };
 
   const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
@@ -687,12 +718,14 @@ const Producten = () => {
               const newCount = analyzedRows.filter((r) => r.status === 'new').length;
               const dupCount = analyzedRows.filter((r) => r.status === 'duplicate').length;
               const multiCount = analyzedRows.filter((r) => r.status === 'multi_cat').length;
+              const newExtraCount = analyzedRows.filter((r) => r.status === 'new_extra_cat').length;
               return (
                 <>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <Badge variant="secondary" className="bg-primary/10 text-primary">{newCount} nieuw</Badge>
+                    {newExtraCount > 0 && <Badge variant="secondary" className="bg-accent text-accent-foreground">{newExtraCount} extra categorie (nieuw product)</Badge>}
                     {dupCount > 0 && <Badge variant="secondary" className="bg-muted text-muted-foreground">{dupCount} dubbel (overgeslagen)</Badge>}
-                    {multiCount > 0 && <Badge variant="secondary" className="bg-accent text-accent-foreground">{multiCount} extra categorie-koppeling</Badge>}
+                    {multiCount > 0 && <Badge variant="secondary" className="bg-accent text-accent-foreground">{multiCount} extra categorie (bestaand)</Badge>}
                   </div>
                   <div className="border rounded-lg overflow-auto max-h-64">
                     <Table>
@@ -712,6 +745,7 @@ const Producten = () => {
                               {row.status === 'new' && <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">Nieuw</Badge>}
                               {row.status === 'duplicate' && <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground">Dubbel</Badge>}
                               {row.status === 'multi_cat' && <Badge variant="secondary" className="text-[10px] bg-accent text-accent-foreground">+ Cat</Badge>}
+                              {row.status === 'new_extra_cat' && <Badge variant="secondary" className="text-[10px] bg-accent text-accent-foreground">+ Cat</Badge>}
                             </TableCell>
                             <TableCell className="text-xs py-1">{row.name}</TableCell>
                             <TableCell className="text-xs py-1">{row.description}</TableCell>
@@ -735,9 +769,11 @@ const Producten = () => {
               {importing ? "Importeren..." : (() => {
                 const newCount = analyzedRows.filter((r) => r.status === 'new').length;
                 const multiCount = analyzedRows.filter((r) => r.status === 'multi_cat').length;
+                const extraCatCount = analyzedRows.filter((r) => r.status === 'new_extra_cat').length;
+                const totalLinks = multiCount + extraCatCount;
                 const parts: string[] = [];
                 if (newCount > 0) parts.push(`${newCount} nieuw`);
-                if (multiCount > 0) parts.push(`${multiCount} koppeling`);
+                if (totalLinks > 0) parts.push(`${totalLinks} koppeling${totalLinks > 1 ? 'en' : ''}`);
                 return parts.length > 0 ? `${parts.join(" + ")} importeren` : "Geen nieuwe producten";
               })()}
             </Button>
