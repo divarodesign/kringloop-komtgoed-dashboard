@@ -322,7 +322,31 @@ const NieuweKlus = () => {
         }
       }
     }
-    toast({ title: "Klus aangemaakt!" });
+    // If quote request, automatically create and send quote via WeFact
+    if (isQuoteRequest) {
+      toast({ title: "Klus aangemaakt, offerte wordt verstuurd..." });
+      try {
+        const { data: quoteData, error: quoteError } = await supabase.functions.invoke("wefact", {
+          body: { action: "create_quote", job_id: job.id },
+        });
+        if (quoteError) throw quoteError;
+        if (quoteData?.error) throw new Error(quoteData.error);
+
+        // Also send the quote by email
+        const { data: sendData, error: sendError } = await supabase.functions.invoke("wefact", {
+          body: { action: "send_quote", job_id: job.id },
+        });
+        if (sendError) throw sendError;
+        if (sendData?.error) throw new Error(sendData.error);
+
+        toast({ title: "Offerte aangemaakt en verstuurd via WeFact!" });
+      } catch (e: any) {
+        console.error("WeFact offerte fout:", e);
+        toast({ title: "Klus aangemaakt, maar offerte versturen mislukt", description: e.message, variant: "destructive" });
+      }
+    } else {
+      toast({ title: "Klus aangemaakt!" });
+    }
     navigate("/admin/klussen");
   };
 
