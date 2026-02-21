@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -21,11 +20,6 @@ import type { Job, JobItem, Profile } from "@/types/database";
 const statusLabels: Record<string, string> = {
   nieuw: "Nieuw", offerte_verstuurd: "Offerte verstuurd", in_uitvoering: "In uitvoering",
   oplevering: "Oplevering", gefactureerd: "Gefactureerd", afgerond: "Afgerond",
-};
-const statusColors: Record<string, string> = {
-  nieuw: "bg-blue-100 text-blue-700", offerte_verstuurd: "bg-amber-100 text-amber-700",
-  in_uitvoering: "bg-primary/10 text-primary", oplevering: "bg-purple-100 text-purple-700",
-  gefactureerd: "bg-orange-100 text-orange-700", afgerond: "bg-emerald-100 text-emerald-700",
 };
 
 const KlusDetail = () => {
@@ -81,6 +75,7 @@ const KlusDetail = () => {
     setEditAssignedTo(job.assigned_to || "");
     setEditExtraCosts(job.extra_costs || 0);
     setEditExtraCostsDesc(job.extra_costs_description || "");
+    setHuisnummer("");
     setEditing(true);
   };
 
@@ -116,18 +111,18 @@ const KlusDetail = () => {
     else { toast({ title: "Status bijgewerkt" }); fetchJob(); }
   };
 
-  const lookupAddress = async () => {
-    if (!editPostalCode || !huisnummer) return;
+  // Auto address lookup when postcode and huisnummer are filled
+  const lookupAddress = useCallback(async (postcode: string, nr: string) => {
+    if (!postcode || postcode.replace(/\s/g, "").length < 6 || !nr) return;
     setLookingUp(true);
     try {
       const { data, error } = await supabase.functions.invoke("lookup-address", {
-        body: { postcode: editPostalCode.replace(/\s/g, ""), huisnummer },
+        body: { postcode: postcode.replace(/\s/g, ""), huisnummer: nr },
       });
       if (error) throw error;
       if (data?.straat) {
-        setEditAddress(`${data.straat} ${huisnummer}`);
+        setEditAddress(`${data.straat} ${nr}`);
         if (data.stad) setEditCity(data.stad);
-        toast({ title: "Adres gevonden!" });
       } else if (data?.error) {
         toast({ title: data.error, variant: "destructive" });
       }
@@ -135,13 +130,27 @@ const KlusDetail = () => {
       toast({ title: "Fout", description: e.message, variant: "destructive" });
     }
     setLookingUp(false);
-  };
+  }, [toast]);
+
+  // Auto-trigger lookup
+  useEffect(() => {
+    if (!editing) return;
+    const cleanPostcode = editPostalCode.replace(/\s/g, "");
+    if (cleanPostcode.length >= 6 && huisnummer.length >= 1) {
+      const timer = setTimeout(() => lookupAddress(editPostalCode, huisnummer), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [editPostalCode, huisnummer, editing, lookupAddress]);
 
   const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
 
   const getProfileName = (userId: string) => {
     const profile = profiles.find(p => p.user_id === userId);
     return profile?.full_name || profile?.email || "Onbekend";
+  };
+
+  const getFullAddress = () => {
+    return [job?.work_address, job?.work_postal_code, job?.work_city].filter(Boolean).join(", ");
   };
 
   if (loading) return <p className="text-center py-12 text-muted-foreground">Laden...</p>;
@@ -153,6 +162,7 @@ const KlusDetail = () => {
     ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
     : job.discount_type === "fixed" ? job.discount_value : 0;
   const total = subtotal + job.travel_cost + (job.extra_costs || 0) - discount;
+  const fullAddress = getFullAddress();
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 pb-8">
@@ -187,6 +197,47 @@ const KlusDetail = () => {
         </div>
       </div>
 
+      {/* Quick action cards: Bellen & Route */}
+      {!editing && (job.customers?.phone || fullAddress) && (
+        <div className="grid grid-cols-2 gap-3">
+          {job.customers?.phone && (
+            <a href={`tel:${job.customers.phone}`} className="block">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20 bg-primary/5">
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Phone className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Bellen</p>
+                    <p className="text-xs text-muted-foreground truncate">{job.customers.phone}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </a>
+          )}
+          {fullAddress && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20 bg-primary/5">
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Navigation className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Route</p>
+                    <p className="text-xs text-muted-foreground truncate">{job.work_city || job.work_address}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </a>
+          )}
+        </div>
+      )}
+
       {/* Status selector */}
       <Select value={job.status} onValueChange={updateStatus}>
         <SelectTrigger className="w-full sm:w-48">
@@ -218,7 +269,6 @@ const KlusDetail = () => {
 
             {editing ? (
               <div className="space-y-3">
-                {/* Date picker */}
                 <div className="space-y-1">
                   <Label className="text-xs">Datum</Label>
                   <Popover>
@@ -233,8 +283,6 @@ const KlusDetail = () => {
                     </PopoverContent>
                   </Popover>
                 </div>
-
-                {/* Assign employee */}
                 <div className="space-y-1">
                   <Label className="text-xs">Toegewezen aan</Label>
                   <Select value={editAssignedTo} onValueChange={setEditAssignedTo}>
@@ -270,7 +318,7 @@ const KlusDetail = () => {
         </Card>
       </div>
 
-      {/* Address card - editable */}
+      {/* Address card */}
       {(editing || job.work_address) && (
         <Card>
           <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2"><CardTitle className="text-sm">Werkadres</CardTitle></CardHeader>
@@ -286,9 +334,7 @@ const KlusDetail = () => {
                     <Label className="text-xs">Huisnummer</Label>
                     <div className="flex gap-2">
                       <Input value={huisnummer} onChange={(e) => setHuisnummer(e.target.value)} placeholder="12a" className="h-9 text-sm flex-1" />
-                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupAddress} disabled={lookingUp || !editPostalCode || !huisnummer}>
-                        {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                      </Button>
+                      {lookingUp && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-center" />}
                     </div>
                   </div>
                 </div>
@@ -304,14 +350,14 @@ const KlusDetail = () => {
             ) : (
               <div className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs">{[job.work_address, job.work_postal_code, job.work_city].filter(Boolean).join(", ")}</span>
+                <span className="text-xs">{fullAddress}</span>
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Description - editable */}
+      {/* Description */}
       {(editing || job.description) && (
         <Card>
           <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2"><CardTitle className="text-sm">Omschrijving</CardTitle></CardHeader>
@@ -355,7 +401,7 @@ const KlusDetail = () => {
         </Card>
       )}
 
-      {/* Extra costs - editable */}
+      {/* Extra costs - editing */}
       {editing && (
         <Card>
           <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2"><CardTitle className="text-sm">Overige kosten</CardTitle></CardHeader>
