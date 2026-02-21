@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Clock, Plus, Briefcase, CalendarDays, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Plus, Briefcase, CalendarDays, Trash2, Phone, Navigation } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import type { Job, Appointment, Customer } from "@/types/database";
@@ -30,6 +30,7 @@ interface AgendaItem {
   status?: string;
   description?: string;
   customerId?: string | null;
+  phone?: string | null;
 }
 
 const DAYS_SHORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
@@ -141,6 +142,7 @@ const Agenda = () => {
         date: a.appointment_date, type: "appointment", subtitle: cust?.name || undefined,
         detail: a.description || undefined, address: addr,
         description: a.description || undefined, customerId: a.customer_id || null,
+        phone: cust?.phone || null,
       });
     });
     // Sort each day by time
@@ -572,6 +574,25 @@ const Agenda = () => {
                 <div>
                   <p className="text-[11px] text-muted-foreground font-medium">Omschrijving</p>
                   <p className="text-sm">{selectedAppointment.description}</p>
+                </div>
+              )}
+              {/* Quick Actions */}
+              {(selectedAppointment.phone || selectedAppointment.address) && (
+                <div className="flex gap-2 pt-1">
+                  {selectedAppointment.phone && (
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" asChild>
+                      <a href={`tel:${selectedAppointment.phone}`}>
+                        <Phone className="h-4 w-4 text-primary" /> Bellen
+                      </a>
+                    </Button>
+                  )}
+                  {selectedAppointment.address && (
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" asChild>
+                      <a href={`https://maps.google.com/?q=${encodeURIComponent(selectedAppointment.address)}`} target="_blank" rel="noopener noreferrer">
+                        <Navigation className="h-4 w-4 text-primary" /> Route
+                      </a>
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
