@@ -630,25 +630,39 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Navigation - sticky on mobile */}
-      <div className="flex justify-between fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur py-3 px-4 sm:static sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0 z-40">
-        <Button variant="outline" size="sm" onClick={() => {
-          if (step === 2 && activeCategoryId) {
-            setActiveCategoryId(null);
-            setProductSearch("");
-          } else if (step > 0) {
-            setStep(step - 1);
-          } else {
-            navigate("/admin/klussen");
-          }
-        }}>
-          <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : step === 2 && activeCategoryId ? "Categorieën" : "Vorige"}
-        </Button>
-        {step < STEPS.length - 1 ? (
-          <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
-        ) : (
-          <Button size="sm" onClick={handleSubmit}><Check className="mr-1.5 h-4 w-4" /> Aanmaken</Button>
+      {/* Sticky bottom: total + navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 sm:static sm:z-auto">
+        {/* Running total bar - visible during product selection steps */}
+        {selectedProducts.length > 0 && (step === 1 || step === 2 || step === 3) && (
+          <div className="bg-card border-t px-4 py-2 flex items-center justify-between sm:rounded-xl sm:border sm:mb-2 sm:mx-0">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-[10px]">{selectedProducts.reduce((s, p) => s + p.quantity, 0)} items</Badge>
+              <span className="text-xs text-muted-foreground">{selectedProducts.length} product(en)</span>
+            </div>
+            <span className="text-sm font-bold">{formatPrice(productsTotal)}</span>
+          </div>
         )}
+
+        {/* Navigation buttons */}
+        <div className="flex justify-between bg-background/95 backdrop-blur py-3 px-4 sm:static sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0">
+          <Button variant="outline" size="sm" onClick={() => {
+            if (step === 2 && activeCategoryId) {
+              setActiveCategoryId(null);
+              setProductSearch("");
+            } else if (step > 0) {
+              setStep(step - 1);
+            } else {
+              navigate("/admin/klussen");
+            }
+          }}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : step === 2 && activeCategoryId ? "Categorieën" : "Vorige"}
+          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
+          ) : (
+            <Button size="sm" onClick={handleSubmit}><Check className="mr-1.5 h-4 w-4" /> Aanmaken</Button>
+          )}
+        </div>
       </div>
     </div>
   );
