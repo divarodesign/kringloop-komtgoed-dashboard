@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -122,6 +122,14 @@ const NieuweKlus = () => {
     return sp?.quantity || 0;
   };
 
+  // Track which products have been added to prevent rapid duplicate clicks
+  const addedProductsRef = useRef<Set<string>>(new Set());
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    addedProductsRef.current = new Set(selectedProducts.map(p => p.product_id).filter(Boolean) as string[]);
+  }, [selectedProducts]);
+
   const setProductQuantity = (product: Product, delta: number) => {
     setSelectedProducts(prev => {
       const existing = prev.find(p => p.product_id === product.id);
@@ -134,6 +142,11 @@ const NieuweKlus = () => {
           p.product_id === product.id ? { ...p, quantity: newQty } : p
         );
       } else if (delta > 0) {
+        // Check ref to prevent duplicate additions from rapid clicks
+        if (addedProductsRef.current.has(product.id)) {
+          return prev;
+        }
+        addedProductsRef.current.add(product.id);
         return [...prev, {
           product_id: product.id,
           description: product.name,
