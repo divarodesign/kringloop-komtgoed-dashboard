@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -111,6 +112,19 @@ const KlusDetail = () => {
     else { toast({ title: "Status bijgewerkt" }); fetchJob(); }
   };
 
+  const deleteJob = async () => {
+    // Delete related records first, then the job
+    await supabase.from("job_items").delete().eq("job_id", id!);
+    await supabase.from("extra_sales").delete().eq("job_id", id!);
+    const { error } = await supabase.from("jobs").delete().eq("id", id!);
+    if (error) {
+      toast({ title: "Fout bij verwijderen", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Klus verwijderd" });
+      navigate("/admin/klussen");
+    }
+  };
+
   // Auto address lookup when postcode and huisnummer are filled
   const lookupAddress = useCallback(async (postcode: string, nr: string) => {
     if (!postcode || postcode.replace(/\s/g, "").length < 6 || !nr) return;
@@ -189,10 +203,32 @@ const KlusDetail = () => {
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" onClick={startEditing}>
-              <Pencil className="h-4 w-4" />
-              <span className="ml-1 hidden sm:inline">Bewerken</span>
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={startEditing}>
+                <Pencil className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">Bewerken</span>
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="destructive">
+                    <Trash2 className="h-4 w-4" />
+                    <span className="ml-1 hidden sm:inline">Verwijderen</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Klus verwijderen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Weet je zeker dat je deze klus wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                    <AlertDialogAction onClick={deleteJob} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Verwijderen</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
         </div>
       </div>
