@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import AddressFields from "@/components/AddressFields";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -204,20 +205,14 @@ const Klanten = () => {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Adres</Label>
-              <Input value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Straat en huisnummer" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Postcode</Label>
-                <Input value={form.postal_code} onChange={(e) => setField("postal_code", e.target.value)} placeholder="1234 AB" />
-              </div>
-              <div className="grid gap-2">
-                <Label>Plaats</Label>
-                <Input value={form.city} onChange={(e) => setField("city", e.target.value)} placeholder="Amsterdam" />
-              </div>
-            </div>
-            <div className="grid gap-2">
+            <AddressFields
+              address={form.address}
+              postalCode={form.postal_code}
+              city={form.city}
+              onAddressChange={(v) => setField("address", v)}
+              onPostalCodeChange={(v) => setField("postal_code", v)}
+              onCityChange={(v) => setField("city", v)}
+            />
               <Label>Notities</Label>
               <Textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Eventuele opmerkingen..." rows={3} />
             </div>
