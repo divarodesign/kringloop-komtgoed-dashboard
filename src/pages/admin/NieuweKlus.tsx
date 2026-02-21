@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,11 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Plus, Trash2, Check, MapPin, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package } from "lucide-react";
+import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Customer, Product, ProductCategory } from "@/types/database";
 
-const STEPS = ["Klant", "Type", "Kosten", "Adres", "Overzicht"];
+const STEPS = ["Klant", "Type", "Producten", "Kosten", "Adres", "Overzicht"];
 
 const calcTravelCost = (km: number) => {
   if (km <= 75) return 89;
@@ -31,14 +32,26 @@ interface SelectedProduct {
   unit_price: number;
 }
 
+const renderLucideIcon = (name: string | null, className = "h-6 w-6") => {
+  if (!name) return <Package className={className + " text-muted-foreground"} />;
+  const LucideIcon = icons[name as keyof typeof icons];
+  if (!LucideIcon) return <Package className={className + " text-muted-foreground"} />;
+  return <LucideIcon className={className} />;
+};
+
 const NieuweKlus = () => {
   const [step, setStep] = useState(0);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Product picker sub-state
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState("");
 
   const [customerId, setCustomerId] = useState("");
   const [newCustomer, setNewCustomer] = useState(false);
@@ -62,14 +75,21 @@ const NieuweKlus = () => {
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
 
+  // Category-product links
+  const [categoryLinks, setCategoryLinks] = useState<{ product_id: string; category_id: string }[]>([]);
+
   useEffect(() => {
     Promise.all([
       supabase.from("customers").select("*").order("name"),
-      supabase.from("products").select("*, product_categories(*)").eq("is_active", true).order("name"),
+      supabase.from("products").select("*").eq("is_active", true).order("name"),
       supabase.from("settings").select("*").eq("key", "company_info").single(),
-    ]).then(([{ data: c }, { data: p }, { data: ci }]) => {
+      supabase.from("product_categories").select("*").order("name"),
+      supabase.from("product_category_links").select("product_id, category_id"),
+    ]).then(([{ data: c }, { data: p }, { data: ci }, { data: cats }, { data: links }]) => {
       setCustomers((c as Customer[]) || []);
       setProducts((p as Product[]) || []);
+      setCategories((cats as ProductCategory[]) || []);
+      setCategoryLinks(links || []);
       if (ci) {
         const info = ci.value as any;
         const addr = [info.address, info.postal_code, info.city].filter(Boolean).join(", ");
@@ -78,6 +98,68 @@ const NieuweKlus = () => {
       setLoading(false);
     });
   }, []);
+
+  // Products filtered by active category
+  const categoryProducts = useMemo(() => {
+    if (!activeCategoryId) return [];
+    const productIds = categoryLinks
+      .filter(l => l.category_id === activeCategoryId)
+      .map(l => l.product_id);
+    // Also include products with direct category_id
+    let filtered = products.filter(p =>
+      productIds.includes(p.id) || p.category_id === activeCategoryId
+    );
+    if (productSearch) {
+      const q = productSearch.toLowerCase();
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [activeCategoryId, products, categoryLinks, productSearch]);
+
+  const getProductQuantity = (productId: string) => {
+    const sp = selectedProducts.find(p => p.product_id === productId);
+    return sp?.quantity || 0;
+  };
+
+  const setProductQuantity = (product: Product, delta: number) => {
+    const existing = selectedProducts.find(p => p.product_id === product.id);
+    if (existing) {
+      const newQty = existing.quantity + delta;
+      if (newQty <= 0) {
+        setSelectedProducts(selectedProducts.filter(p => p.product_id !== product.id));
+      } else {
+        setSelectedProducts(selectedProducts.map(p =>
+          p.product_id === product.id ? { ...p, quantity: newQty } : p
+        ));
+      }
+    } else if (delta > 0) {
+      setSelectedProducts([...selectedProducts, {
+        product_id: product.id,
+        description: product.name,
+        quantity: 1,
+        unit_price: product.price,
+      }]);
+    }
+    // Recalc advised price for ontruiming
+    if (jobType === "ontruiming") {
+      setTimeout(() => {
+        setAdvisedPrice(prev => {
+          const updated = selectedProducts.find(p => p.product_id === product.id);
+          const allProducts = existing
+            ? selectedProducts.map(p => p.product_id === product.id ? { ...p, quantity: Math.max(0, p.quantity + delta) } : p).filter(p => p.quantity > 0)
+            : [...selectedProducts, { product_id: product.id, description: product.name, quantity: 1, unit_price: product.price }];
+          return allProducts.reduce((s, p) => s + p.quantity * p.unit_price, 0);
+        });
+      }, 0);
+    }
+  };
+
+  // Recalculate advisedPrice whenever selectedProducts changes
+  useEffect(() => {
+    if (jobType === "ontruiming") {
+      setAdvisedPrice(selectedProducts.reduce((s, p) => s + p.quantity * p.unit_price, 0));
+    }
+  }, [selectedProducts, jobType]);
 
   const calculateDistance = async () => {
     const toAddr = [workAddress, workPostalCode, workCity].filter(Boolean).join(", ");
@@ -112,21 +194,6 @@ const NieuweKlus = () => {
     : discountType === "fixed" ? (parseFloat(discountValue) || 0) : 0;
   const total = subtotal + travelCost + extra - discount;
 
-  const addProduct = () => setSelectedProducts([...selectedProducts, { product_id: null, description: "", quantity: 1, unit_price: 0 }]);
-  const removeProduct = (i: number) => setSelectedProducts(selectedProducts.filter((_, idx) => idx !== i));
-  const updateProduct = (i: number, field: string, value: any) => {
-    const updated = [...selectedProducts];
-    (updated[i] as any)[field] = value;
-    if (field === "product_id") {
-      const prod = products.find((p) => p.id === value);
-      if (prod) { updated[i].description = prod.name; updated[i].unit_price = prod.price; }
-    }
-    setSelectedProducts(updated);
-    if (jobType === "ontruiming") {
-      setAdvisedPrice(updated.reduce((s, p) => s + p.quantity * p.unit_price, 0));
-    }
-  };
-
   const handleSubmit = async () => {
     let cid = customerId;
     if (newCustomer) {
@@ -158,7 +225,7 @@ const NieuweKlus = () => {
   if (loading) return <p className="text-center py-12 text-muted-foreground">Laden...</p>;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 pb-8">
+    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 pb-20 sm:pb-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate("/admin/klussen")}><ArrowLeft className="h-4 w-4" /></Button>
@@ -223,53 +290,38 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Step 2: Type */}
+      {/* Step 2: Type opdracht */}
       {step === 1 && (
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2">
             <CardTitle className="text-base">Type opdracht</CardTitle>
+            <CardDescription className="text-xs">Kies het type en ga daarna producten selecteren</CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setJobType("producten")} className={`rounded-xl border-2 p-3 sm:p-4 text-left transition-colors touch-manipulation ${jobType === "producten" ? "border-primary bg-primary/5" : "border-border"}`}>
-                <p className="text-sm font-medium">Producten</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Uit catalogus</p>
+              <button onClick={() => setJobType("producten")} className={`rounded-xl border-2 p-4 text-left transition-all touch-manipulation active:scale-[0.97] ${jobType === "producten" ? "border-primary bg-primary/5" : "border-border"}`}>
+                <p className="text-sm font-semibold">Producten</p>
+                <p className="text-xs text-muted-foreground mt-1">Selecteer producten uit de catalogus</p>
               </button>
-              <button onClick={() => setJobType("ontruiming")} className={`rounded-xl border-2 p-3 sm:p-4 text-left transition-colors touch-manipulation ${jobType === "ontruiming" ? "border-primary bg-primary/5" : "border-border"}`}>
-                <p className="text-sm font-medium">Ontruiming</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Met adviesprijs</p>
+              <button onClick={() => setJobType("ontruiming")} className={`rounded-xl border-2 p-4 text-left transition-all touch-manipulation active:scale-[0.97] ${jobType === "ontruiming" ? "border-primary bg-primary/5" : "border-border"}`}>
+                <p className="text-sm font-semibold">Ontruiming</p>
+                <p className="text-xs text-muted-foreground mt-1">Selecteer producten, stel adviesprijs samen</p>
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Producten</Label>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addProduct}><Plus className="mr-1 h-3 w-3" /> Product</Button>
-              </div>
-              {selectedProducts.length === 0 && <p className="text-xs text-muted-foreground py-4 text-center">Nog geen producten</p>}
-              {selectedProducts.map((sp, i) => (
-                <div key={i} className="border rounded-xl p-3 space-y-2">
-                  <Select value={sp.product_id || ""} onValueChange={(v) => updateProduct(i, "product_id", v)}>
-                    <SelectTrigger className="text-xs"><SelectValue placeholder="Kies product" /></SelectTrigger>
-                    <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} — {formatPrice(p.price)}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1 grid gap-1">
-                      <Label className="text-[10px]">Aantal</Label>
-                      <Input type="number" min={1} value={sp.quantity} onChange={(e) => updateProduct(i, "quantity", parseInt(e.target.value) || 1)} className="h-8 text-xs" />
-                    </div>
-                    <div className="flex-1 grid gap-1">
-                      <Label className="text-[10px]">Prijs</Label>
-                      <Input type="number" step="0.01" value={sp.unit_price} onChange={(e) => updateProduct(i, "unit_price", parseFloat(e.target.value) || 0)} className="h-8 text-xs" />
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeProduct(i)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+            {/* Show selected products summary */}
+            {selectedProducts.length > 0 && (
+              <div className="border rounded-xl p-3 bg-muted/30 space-y-2">
+                <p className="text-xs font-medium">{selectedProducts.length} product(en) geselecteerd</p>
+                {selectedProducts.map((sp, i) => (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span className="truncate">{sp.description} ×{sp.quantity}</span>
+                    <span className="font-medium ml-2">{formatPrice(sp.quantity * sp.unit_price)}</span>
                   </div>
-                </div>
-              ))}
-              {selectedProducts.length > 0 && (
-                <p className="text-xs font-medium text-right">Subtotaal: {formatPrice(productsTotal)}</p>
-              )}
-            </div>
+                ))}
+                <p className="text-xs font-semibold text-right border-t pt-1">Subtotaal: {formatPrice(productsTotal)}</p>
+              </div>
+            )}
 
             {jobType === "ontruiming" && selectedProducts.length > 0 && (
               <div className="border rounded-xl p-3 space-y-2 bg-muted/30">
@@ -284,8 +336,149 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Step 3: Kosten */}
+      {/* Step 3: Producten selecteren via categorieën/cards */}
       {step === 2 && (
+        <div className="space-y-3">
+          {!activeCategoryId ? (
+            <>
+              {/* Category cards grid */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold">Categorieën</h2>
+                  <p className="text-xs text-muted-foreground">Kies een categorie om producten te selecteren</p>
+                </div>
+                {selectedProducts.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">{selectedProducts.length} geselecteerd</Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+                {categories.map(cat => {
+                  // Count selected products in this category
+                  const catProductIds = categoryLinks.filter(l => l.category_id === cat.id).map(l => l.product_id);
+                  const catProducts = products.filter(p => catProductIds.includes(p.id) || p.category_id === cat.id);
+                  const selectedInCat = selectedProducts.filter(sp => catProducts.some(cp => cp.id === sp.product_id));
+                  
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => { setActiveCategoryId(cat.id); setProductSearch(""); }}
+                      className="flex flex-col items-center gap-1.5 p-3 sm:p-4 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all touch-manipulation active:scale-[0.95] relative shadow-sm"
+                    >
+                      {selectedInCat.length > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">
+                          {selectedInCat.reduce((s, p) => s + p.quantity, 0)}
+                        </div>
+                      )}
+                      <div className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-primary">
+                        {renderLucideIcon(cat.icon, "h-6 w-6 sm:h-7 sm:w-7")}
+                      </div>
+                      <span className="text-[10px] sm:text-xs font-medium text-center leading-tight line-clamp-2">{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected products summary */}
+              {selectedProducts.length > 0 && (
+                <Card className="mt-3">
+                  <CardContent className="p-3 space-y-1.5">
+                    <p className="text-xs font-semibold">Geselecteerde producten</p>
+                    {selectedProducts.map((sp, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="truncate flex-1">{sp.description} ×{sp.quantity}</span>
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="font-medium">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedProducts(selectedProducts.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-xs font-bold text-right border-t pt-1.5">Subtotaal: {formatPrice(productsTotal)}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Product cards within category */}
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="h-8 text-xs shrink-0" onClick={() => { setActiveCategoryId(null); setProductSearch(""); }}>
+                  <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Terug naar categorieën
+                </Button>
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Zoek product..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="pl-8 h-7 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                {categoryProducts.map(product => {
+                  const qty = getProductQuantity(product.id);
+                  const isSelected = qty > 0;
+
+                  return (
+                    <div
+                      key={product.id}
+                      className={`flex flex-col items-center p-3 rounded-xl border transition-all shadow-sm ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50 bg-card"}`}
+                    >
+                      <div className="h-10 w-10 flex items-center justify-center text-primary mb-1.5">
+                        {renderLucideIcon(product.icon, "h-6 w-6")}
+                      </div>
+                      <p className="text-[10px] sm:text-xs font-medium text-center leading-tight line-clamp-2 mb-0.5">{product.name}</p>
+                      {product.description && (
+                        <p className="text-[9px] text-muted-foreground text-center line-clamp-2 mb-1">{product.description}</p>
+                      )}
+
+                      {/* Quantity controls */}
+                      {isSelected ? (
+                        <div className="flex items-center gap-1 mt-auto">
+                          <button
+                            onClick={() => setProductQuantity(product, -1)}
+                            className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="text-sm font-bold w-6 text-center">{qty}</span>
+                          <button
+                            onClick={() => setProductQuantity(product, 1)}
+                            className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setProductQuantity(product, 1)}
+                          className="mt-auto h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      )}
+
+                      <span className="text-[10px] text-muted-foreground mt-1">{formatPrice(product.price)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {categoryProducts.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-8">Geen producten in deze categorie</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Step 4: Kosten */}
+      {step === 3 && (
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Kosten & Korting</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
@@ -326,8 +519,8 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Step 4: Werkadres */}
-      {step === 3 && (
+      {/* Step 5: Werkadres */}
+      {step === 4 && (
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Werkadres & Planning</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
@@ -368,8 +561,8 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Step 5: Overzicht */}
-      {step === 4 && (
+      {/* Step 6: Overzicht */}
+      {step === 5 && (
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2">
             <CardTitle className="text-base">Overzicht</CardTitle>
@@ -405,9 +598,18 @@ const NieuweKlus = () => {
       )}
 
       {/* Navigation - sticky on mobile */}
-      <div className="flex justify-between sticky bottom-0 bg-background/95 backdrop-blur py-3 -mx-3 px-3 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0">
-        <Button variant="outline" size="sm" onClick={() => step > 0 ? setStep(step - 1) : navigate("/admin/klussen")}>
-          <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : "Vorige"}
+      <div className="flex justify-between fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur py-3 px-4 sm:static sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0 z-40">
+        <Button variant="outline" size="sm" onClick={() => {
+          if (step === 2 && activeCategoryId) {
+            setActiveCategoryId(null);
+            setProductSearch("");
+          } else if (step > 0) {
+            setStep(step - 1);
+          } else {
+            navigate("/admin/klussen");
+          }
+        }}>
+          <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : step === 2 && activeCategoryId ? "Categorieën" : "Vorige"}
         </Button>
         {step < STEPS.length - 1 ? (
           <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
