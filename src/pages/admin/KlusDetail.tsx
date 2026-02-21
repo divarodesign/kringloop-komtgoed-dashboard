@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera, FileText, Receipt, Send, CheckCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -34,6 +35,9 @@ const KlusDetail = () => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [wefactLoading, setWefactLoading] = useState<string | null>(null);
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [invoicesData, setInvoicesData] = useState<any[]>([]);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState("");
@@ -52,16 +56,20 @@ const KlusDetail = () => {
   const [lookingUp, setLookingUp] = useState(false);
 
   const fetchJob = async () => {
-    const [{ data: j }, { data: ji }, { data: p }, { data: rp }] = await Promise.all([
+    const [{ data: j }, { data: ji }, { data: p }, { data: rp }, { data: q }, { data: inv }] = await Promise.all([
       supabase.from("jobs").select("*, customers(*)").eq("id", id!).single(),
       supabase.from("job_items").select("*, products(*)").eq("job_id", id!),
       supabase.from("profiles").select("*").eq("is_active", true),
       supabase.from("job_room_photos").select("*").eq("job_id", id!),
+      supabase.from("quotes").select("*").eq("job_id", id!).order("created_at", { ascending: false }),
+      supabase.from("invoices").select("*").eq("job_id", id!).order("created_at", { ascending: false }),
     ]);
     setJob(j as Job);
     setItems((ji as JobItem[]) || []);
     setRoomPhotos((rp as any[]) || []);
     setProfiles((p as Profile[]) || []);
+    setQuotes(q || []);
+    setInvoicesData(inv || []);
     setLoading(false);
   };
 
@@ -160,6 +168,30 @@ const KlusDetail = () => {
   }, [editPostalCode, huisnummer, editing, lookupAddress]);
 
   const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
+
+  const handleWefactAction = async (action: string) => {
+    setWefactLoading(action);
+    try {
+      const { data, error } = await supabase.functions.invoke("wefact", {
+        body: { action, job_id: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const messages: Record<string, string> = {
+        create_quote: `Offerte ${data.quote_number || ""} aangemaakt in WeFact`,
+        send_quote: "Offerte verstuurd via WeFact",
+        create_invoice: `Factuur ${data.invoice_number || ""} aangemaakt in WeFact`,
+        send_invoice: "Factuur verstuurd via WeFact",
+        check_payment: data.is_paid ? "Factuur is betaald! ✅" : "Factuur is nog niet betaald",
+      };
+      toast({ title: messages[action] || "Actie uitgevoerd" });
+      fetchJob();
+    } catch (e: any) {
+      toast({ title: "WeFact fout", description: e.message, variant: "destructive" });
+    }
+    setWefactLoading(null);
+  };
 
   const getProfileName = (userId: string) => {
     const profile = profiles.find(p => p.user_id === userId);
@@ -504,6 +536,75 @@ const KlusDetail = () => {
             <div className="space-y-1">
               <Label className="text-xs">Omschrijving</Label>
               <Input value={editExtraCostsDesc} onChange={(e) => setEditExtraCostsDesc(e.target.value)} placeholder="Bijv. materiaalkosten" className="h-9 text-sm" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WeFact Acties */}
+      {!editing && (
+        <Card>
+          <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2">
+            <CardTitle className="text-sm">WeFact</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+            {/* Existing quotes/invoices */}
+            {quotes.length > 0 && (
+              <div className="space-y-1">
+                {quotes.map((q) => (
+                  <div key={q.id} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5"><FileText className="h-3 w-3 text-muted-foreground" /> Offerte {q.quote_number || "—"}</span>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{q.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+            {invoicesData.length > 0 && (
+              <div className="space-y-1">
+                {invoicesData.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5"><Receipt className="h-3 w-3 text-muted-foreground" /> Factuur {inv.invoice_number || "—"}</span>
+                    <Badge variant={inv.status === "betaald" ? "default" : "secondary"}
+                      className={`text-[10px] px-1.5 py-0 ${inv.status === "betaald" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
+                      {inv.status === "betaald" ? "Betaald" : inv.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              {quotes.length === 0 && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("create_quote")} disabled={!!wefactLoading}>
+                  {wefactLoading === "create_quote" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                  Offerte aanmaken
+                </Button>
+              )}
+              {quotes.length > 0 && quotes[0].status === "concept" && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("send_quote")} disabled={!!wefactLoading}>
+                  {wefactLoading === "send_quote" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                  Offerte versturen
+                </Button>
+              )}
+              {invoicesData.length === 0 && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("create_invoice")} disabled={!!wefactLoading}>
+                  {wefactLoading === "create_invoice" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1" />}
+                  Factuur aanmaken
+                </Button>
+              )}
+              {invoicesData.length > 0 && invoicesData[0].status !== "betaald" && invoicesData[0].status !== "verstuurd" && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("send_invoice")} disabled={!!wefactLoading}>
+                  {wefactLoading === "send_invoice" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                  Factuur versturen
+                </Button>
+              )}
+              {invoicesData.length > 0 && invoicesData[0].status !== "betaald" && (
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("check_payment")} disabled={!!wefactLoading}>
+                  {wefactLoading === "check_payment" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                  Betaalstatus checken
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
