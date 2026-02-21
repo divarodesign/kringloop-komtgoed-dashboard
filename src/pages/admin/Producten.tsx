@@ -179,99 +179,96 @@ const Producten = () => {
   // Uses real Lucide icon names verified against the library
   const iconRules: [string, string[]][] = [
     // === Specifieke producten eerst (exacte matches) ===
-    ["Bath", ["badkuip", "bad"]],
+    ["Bath", ["badkuip"]],
     ["ShowerHead", ["douchecabine", "douche"]],
     ["FireExtinguisher", ["brandblusser"]],
-    ["DoorOpen", ["deur"]],
-    ["Heater", ["radiator", "verwarming"]],
-    ["Piano", ["piano"]],
+    ["DoorOpen", ["deur "]],
+    ["Heater", ["radiator", "verwarming", "cv ketel"]],
+    ["Piano", ["piano", "keyboard"]],
     ["Disc3", ["autoband", "banden", "velg"]],
     ["Accessibility", ["rollator", "rolstoel"]],
-    ["AirVent", ["airco", "mobiele airco", "afzuigkap", "horeca afzuigkap"]],
-    ["Waves", ["jacuzzi", "hottub", "opblaasbare jacuzzi"]],
+    ["AirVent", ["airco", "mobiele airco", "afzuigkap"]],
+    ["Waves", ["jacuzzi", "hottub"]],
     ["Wine", ["flessen"]],
-    ["Construction", ["bouw", "sloop", "steenpuin", "tegels", "glasblok", "glasbok", "kozijn", "glasplaat", "betonvoet", "bielzen", "puinzak"]],
+    ["Construction", ["sloop", "steenpuin", "tegels", "glasblok", "glasbok", "kozijn", "glasplaat", "betonvoet", "bielzen", "puinzak", "bouwafval", "bouwmateriaal"]],
     ["Warehouse", ["kassabalie", "kassa"]],
     ["PersonStanding", ["paspop"]],
     ["Scissors", ["strijkplank", "droogrek", "strijkijzer"]],
-    ["Frame", ["spiegel"]],
-    ["CircleHelp", ["afval diverse", "hoarder", "nk"]],
+    ["Frame", ["spiegel", "schilderij", "fotolijst"]],
     ["Cat", ["krabpaal"]],
 
-    // === Zitmeubels ===
-    ["Sofa", ["bank", "sofa", "zetel", "couch", "loungeset", "hoek", "slaapbank"]],
-    ["Armchair", ["fauteuil", "lounge fauteuil", "relax", "sta op stoel", "hocker", "poef", "voetenbank", "fitness bank"]],
+    // === Zitmeubels (banken & sofa's) ===
+    ["Sofa", ["bank ", "bank(", "bankstel", "sofa", "zetel", "couch", "loungeset", "hoekbank", "l bank", "l-bank", "u bank", "u-bank", "slaapbank", "tuinbank", "tuin bank", "loungebank"]],
+
+    // === Fauteuils & stoelen ===
+    ["Armchair", ["fauteuil", "relax", "sta op stoel", "hocker", "poef", "voetenbank", "fitness bank"]],
 
     // === Bedden & matrassen ===
-    ["BedDouble", ["bed 2-pers", "boxspring 2", "kingsize"]],
-    ["BedSingle", ["bed 1-pers", "boxspring 1", "bed zorg", "hoog-laag"]],
-    ["Bed", ["bed", "matras", "topper", "bedbodem", "hoofdbord"]],
+    ["BedDouble", ["bed 2-pers", "boxspring 2", "kingsize", "bed 2 pers"]],
+    ["BedSingle", ["bed 1-pers", "boxspring 1", "bed zorg", "hoog-laag", "bed 1 pers"]],
+    ["Bed", ["bed ", "bed(", "bedden", "matras", "topper", "bedbodem", "hoofdbord", "ombouw", "ledikant", "stapelbed", "hemelbed", "zonnebank"]],
 
     // === Stoelen ===
-    ["Armchair", ["stoel directeur", "vergaderstoel", "stoel massage", "bureaustoel", "stoel bureau", "stoel relax"]],
-    ["Armchair", ["stoel fauteuil"]],
-    ["Armchair", ["stoel eetkamer", "stoel terras", "stoel tuin", "stoel klein", "krukje", "stoel"]],
+    ["Armchair", ["bureaustoel", "vergaderstoel", "directiestoel", "massagestoel"]],
+    ["Armchair", ["eetkamerstoel", "terrasstoel", "tuinstoel", "krukje", "barkruk", "stoel"]],
 
     // === Tafels & bureaus ===
-    ["Table", ["tafel", "bureau", "salon", "bijzet", "directie", "picknick", "aanrechtblad", "tennis tafel"]],
+    ["Table", ["tafel", "bureau", "salon", "bijzet", "picknick", "aanrechtblad", "tennistafel", "eettafel", "salontafel", "bijzettafel", "sidetable"]],
 
     // === Kasten & opslag ===
-    ["DoorClosed", ["kast", "dressoir", "commode", "ladekast", "tv meubel", "wandmeubel", "stelling", "archief", "roldeur", "toog", "mechelse", "dekenkist", "nachtkastje", "ladeblok"]],
+    ["DoorClosed", ["kast", "dressoir", "commode", "ladekast", "tv meubel", "tv-meubel", "wandmeubel", "stelling", "archief", "roldeur", "toog", "mechelse", "dekenkist", "nachtkastje", "ladeblok", "vitrinekast", "boekenkast", "garderobekast", "schoenenkast"]],
 
     // === Keukenapparatuur ===
-    ["Refrigerator", ["koelkast", "vriezer", "amerikaanse", "tafelmodel", "wijn", "vitrine"]],
-    ["CookingPot", ["fornuis", "oven", "vaatwasser", "kookplaat", "keukenblok"]],
+    ["Refrigerator", ["koelkast", "vriezer", "amerikaanse", "tafelmodel", "wijnkoeler", "vitrine"]],
+    ["CookingPot", ["fornuis", "oven", "vaatwasser", "kookplaat", "keukenblok", "gasfornuis"]],
     ["Microwave", ["magnetron"]],
 
     // === Huishoudelijk ===
-    ["WashingMachine", ["wasmachine", "droger"]],
-    ["Shirt", ["kleding", "dressboy", "kapstok", "kapstop"]],
+    ["WashingMachine", ["wasmachine", "droger", "stofzuiger"]],
+    ["Shirt", ["kleding", "dressboy", "kapstok"]],
 
     // === Lampen ===
-    ["Lamp", ["lamp", "verlichting", "lampje", "staande lamp"]],
-    ["LampDesk", ["bureaulamp"]],
+    ["Lamp", ["lamp", "verlichting", "kroonluchter", "staande lamp", "hanglamp", "plafondlamp"]],
+    ["LampDesk", ["bureaulamp", "tafellamp"]],
 
     // === Elektronica ===
-    ["Tv", ["tv", "televisie", "scherm"]],
-    ["Monitor", ["computer", "laptop", "pc monitor", "monitor"]],
+    ["Tv", ["tv", "televisie", "scherm", "flatscreen"]],
+    ["Monitor", ["computer", "laptop", "monitor"]],
     ["Printer", ["printer", "kopieerapparaat"]],
     ["Smartphone", ["telefoon", "phone", "mobiel"]],
 
     // === Sport & fitness ===
-    ["Dumbbell", ["hometrainer", "loopband", "spinning"]],
+    ["Dumbbell", ["hometrainer", "loopband", "spinning", "crosstrainer", "fitnessapparaat"]],
 
     // === Fietsen & voertuigen ===
-    ["Bike", ["fiets", "bakfiets"]],
+    ["Bike", ["fiets", "bakfiets", "e-bike"]],
     ["Car", ["auto", "scooter", "scootmobiel", "kruiwagen"]],
 
     // === Tuin & buiten ===
-    ["Fence", ["schutting", "hek"]],
-    ["Umbrella", ["parasol"]],
-    ["Flame", ["bbq", "gas bbq", "kamado"]],
-    ["TreePine", ["hout", "plank", "timber", "pallet"]],
-    ["Leaf", ["tuin", "plant", "bloem", "snoei", "groen", "groei", "kamerplant"]],
-    ["Shovel", ["tuin"]],
+    ["Fence", ["schutting", "hek", "tuinhek"]],
+    ["Umbrella", ["parasol", "partytent"]],
+    ["Flame", ["bbq", "barbecue", "kamado", "gas bbq"]],
+    ["TreePine", ["hout", "plank", "pallet", "houtafval"]],
+    ["Leaf", ["plant", "bloem", "snoei", "kamerplant", "bloembak"]],
 
     // === Afval & containers ===
-    ["Trash2", ["afval", "grof", "kliko", "rol container", "prullenbak", "piepschuim", "los afval", "keukenmontage afval"]],
+    ["Trash2", ["afval", "grof", "kliko", "container", "prullenbak", "piepschuim", "los afval"]],
 
     // === Kantoor & horeca ===
-    ["Building2", ["horeca", "restaurant", "bar", "horeca apparatuur"]],
-    ["GraduationCap", ["school", "kantoor", "office", "leerling"]],
+    ["Building2", ["horeca", "restaurant", "bar "]],
+    ["GraduationCap", ["school", "kantoor", "office"]],
 
     // === Muziek ===
-    ["Music", ["muziek", "instrument", "gitaar"]],
+    ["Music", ["muziek", "instrument", "gitaar", "drum"]],
 
     // === Overig ===
-    ["Paintbrush", ["verf", "decoratie", "schilderij"]],
-    ["Baby", ["baby", "kinder", "speelgoed"]],
+    ["Paintbrush", ["verf", "decoratie"]],
+    ["Baby", ["baby", "kinder", "speelgoed", "kinderwagen", "buggy"]],
     ["BookOpen", ["boek", "magazine", "papier", "karton"]],
     ["Wrench", ["gereedschap", "werktuig"]],
-    ["RectangleHorizontal", ["laminaat", "tapijt", "ondervloer", "vloer", "groene ondervloer"]],
+    ["RectangleHorizontal", ["laminaat", "tapijt", "ondervloer", "vloer"]],
     ["Home", ["appartement", "leegruimen", "ontruiming"]],
-    ["Cylinder", ["container"]],
     ["Package", ["doos", "verpakking"]],
-    ["WashingMachine", ["stofzuiger"]],
   ];
 
   const guessIcon = (name: string): string => {
