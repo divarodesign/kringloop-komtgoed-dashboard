@@ -76,6 +76,7 @@ const NieuweKlus = () => {
   const [isDirect, setIsDirect] = useState(false);
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
+  const [housingType, setHousingType] = useState("");
 
   // Category-product links
   const [categoryLinks, setCategoryLinks] = useState<{ product_id: string; category_id: string }[]>([]);
@@ -316,6 +317,29 @@ const NieuweKlus = () => {
                 <p className="text-sm font-semibold">Ontruiming</p>
                 <p className="text-xs text-muted-foreground mt-1">Selecteer producten, stel adviesprijs samen</p>
               </button>
+            </div>
+
+            <div className="pt-2">
+              <p className="text-sm font-semibold mb-1">Type woning</p>
+              <p className="text-xs text-muted-foreground mb-3">Selecteer het type woning</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { value: "appartement", label: "Appartement" },
+                  { value: "tussenwoning", label: "Tussenwoning" },
+                  { value: "twee-onder-een-kap", label: "Twee-onder-een-kap" },
+                  { value: "vrijstaand", label: "Vrijstaand huis" },
+                  { value: "zorgkamer", label: "Zorgkamer" },
+                  { value: "hoarder", label: "Hoarder" },
+                ].map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => setHousingType(housingType === type.value ? "" : type.value)}
+                    className={`rounded-xl border-2 p-3 text-center transition-all touch-manipulation active:scale-[0.97] ${housingType === type.value ? "border-primary bg-primary/5" : "border-border"}`}
+                  >
+                    <p className="text-sm font-medium">{type.label}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Show selected products summary */}
