@@ -157,16 +157,21 @@ Deno.serve(async (req) => {
       const hasRooms = roomNames.length > 1 || (roomNames.length === 1 && roomNames[0] !== "Overig");
 
       if (hasRooms) {
-        for (const roomName of roomNames) {
-          // Add room header as a line with 0 price
+        for (let ri = 0; ri < roomNames.length; ri++) {
+          const roomName = roomNames[ri];
+          // Add blank separator between rooms (not before first)
+          if (ri > 0) {
+            lines.push({ Description: "", Number: 0, PriceExcl: 0 });
+          }
+          // Add room header in bold (WeFact supports <b> in descriptions)
           lines.push({
-            Description: `--- ${roomName} ---`,
+            Description: `<b>${roomName}</b>`,
             Number: 0,
             PriceExcl: 0,
           });
           for (const item of roomGroups[roomName]) {
             lines.push({
-              Description: item.description,
+              Description: `  ${item.description}`,
               Number: item.quantity,
               PriceExcl: item.unit_price,
             });
