@@ -101,14 +101,15 @@ const NieuweKlus = () => {
 
   // Products filtered by active category
   const categoryProducts = useMemo(() => {
-    if (!activeCategoryId) return [];
-    const productIds = categoryLinks
-      .filter(l => l.category_id === activeCategoryId)
-      .map(l => l.product_id);
-    // Also include products with direct category_id
-    let filtered = products.filter(p =>
-      productIds.includes(p.id) || p.category_id === activeCategoryId
-    );
+    let filtered = products;
+    if (activeCategoryId) {
+      const productIds = categoryLinks
+        .filter(l => l.category_id === activeCategoryId)
+        .map(l => l.product_id);
+      filtered = products.filter(p =>
+        productIds.includes(p.id) || p.category_id === activeCategoryId
+      );
+    }
     if (productSearch) {
       const q = productSearch.toLowerCase();
       filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
