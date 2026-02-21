@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download, AlertTriangle, RefreshCw } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download, AlertTriangle, RefreshCw, Package } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IconPicker from "@/components/IconPicker";
@@ -559,113 +559,167 @@ const Producten = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Producten</h1>
-          <p className="text-muted-foreground">Productcatalogus beheren</p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={reassignAllIcons}><RefreshCw className="mr-2 h-4 w-4" /> Icons herberekenen</Button>
-          <Button variant="outline" onClick={() => setImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" /> Excel import</Button>
-          <Button variant="outline" onClick={() => setBulkCatDialogOpen(true)}><Layers className="mr-2 h-4 w-4" /> Bulk categorieën</Button>
-          <Button variant="outline" onClick={() => setCatDialogOpen(true)}><FolderPlus className="mr-2 h-4 w-4" /> Categorie</Button>
-          <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> Product</Button>
+    <div className="space-y-4 sm:space-y-6 pb-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Producten</h1>
+        <p className="text-sm text-muted-foreground">Productcatalogus beheren</p>
+      </div>
+
+      {/* Action buttons - scrollable row on mobile */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <Button onClick={openNew} size="sm" className="shrink-0">
+          <Plus className="mr-1.5 h-4 w-4" /> Product
+        </Button>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => setImportDialogOpen(true)}>
+          <Upload className="mr-1.5 h-4 w-4" /> Import
+        </Button>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => setCatDialogOpen(true)}>
+          <FolderPlus className="mr-1.5 h-4 w-4" /> Categorie
+        </Button>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => setBulkCatDialogOpen(true)}>
+          <Layers className="mr-1.5 h-4 w-4" /> Bulk
+        </Button>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={reassignAllIcons}>
+          <RefreshCw className="mr-1.5 h-4 w-4" /> Icons
+        </Button>
+      </div>
+
+      {/* Filter & Search */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Select value={activeCategory} onValueChange={setActiveCategory}>
+          <SelectTrigger className="sm:w-[240px]">
+            <SelectValue placeholder="Alle categorieën" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle categorieën ({products.length})</SelectItem>
+            {categories.map((c) => {
+              const count = products.filter((p) => {
+                const linkedCatIds = productCategoryLinks.filter((l) => l.product_id === p.id).map((l) => l.category_id);
+                return p.category_id === c.id || linkedCatIds.includes(c.id);
+              }).length;
+              return (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name} ({count})
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Zoek producten..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
       </div>
 
-      <Card>
-        <CardContent className="py-3">
-          <div className="flex items-center gap-3">
-            <Label className="text-sm text-muted-foreground whitespace-nowrap">Categorie:</Label>
-            <Select value={activeCategory} onValueChange={setActiveCategory}>
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Alle categorieën" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle categorieën ({products.length})</SelectItem>
-                {categories.map((c) => {
-                  const count = products.filter((p) => {
-                    const linkedCatIds = productCategoryLinks.filter((l) => l.product_id === p.id).map((l) => l.category_id);
-                    return p.category_id === c.id || linkedCatIds.includes(c.id);
-                  }).length;
-                  return (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} ({count})
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Product count */}
+      <p className="text-xs text-muted-foreground">{filtered.length} product{filtered.length !== 1 ? 'en' : ''}</p>
 
-      <Card>
-        <CardHeader>
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Zoek producten..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Product list - cards on mobile, table on desktop */}
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {search ? "Geen resultaten." : "Nog geen producten."}
+        </div>
+      ) : (
+        <>
+          {/* Mobile card view */}
+          <div className="sm:hidden space-y-2">
+            {filtered.map((p: any) => {
+              const linkedCats = getCategoriesForProduct(p.id);
+              return (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border/50 shadow-sm"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted shrink-0">
+                    {renderIcon(p.icon) || <Package className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{p.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-semibold text-primary">{formatPrice(p.price)}</span>
+                      {linkedCats.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {linkedCats.map((c: any) => c.name).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-0.5 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(p.id)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-center py-8 text-muted-foreground">Laden...</p>
-          ) : filtered.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">{search ? "Geen resultaten." : "Nog geen producten."}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]"></TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Categorieën</TableHead>
-                  <TableHead className="text-right">Prijs</TableHead>
-                  <TableHead className="w-[100px]">Acties</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((p: any) => {
-                  const linkedCats = getCategoriesForProduct(p.id);
-                  return (
-                    <TableRow key={p.id}>
-                      <TableCell>{renderIcon(p.icon)}</TableCell>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{p.name}</span>
-                          {p.description && <p className="text-sm text-muted-foreground truncate max-w-xs">{p.description}</p>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {linkedCats.length > 0 ? linkedCats.map((cat: any) => (
-                            <Badge key={cat.id} variant="secondary" className="gap-1">
-                              {renderIcon(cat.icon)}
-                              {cat.name}
-                            </Badge>
-                          )) : p.product_categories ? (
-                            <Badge variant="secondary" className="gap-1">
-                              {renderIcon(p.product_categories.icon)}
-                              {p.product_categories.name}
-                            </Badge>
-                          ) : <span className="text-muted-foreground text-sm">-</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{formatPrice(p.price)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+
+          {/* Desktop table view */}
+          <Card className="hidden sm:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]"></TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Categorieën</TableHead>
+                    <TableHead className="text-right">Prijs</TableHead>
+                    <TableHead className="w-[100px]">Acties</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((p: any) => {
+                    const linkedCats = getCategoriesForProduct(p.id);
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>{renderIcon(p.icon)}</TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{p.name}</span>
+                            {p.description && <p className="text-sm text-muted-foreground truncate max-w-xs">{p.description}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {linkedCats.length > 0 ? linkedCats.map((cat: any) => (
+                              <Badge key={cat.id} variant="secondary" className="gap-1">
+                                {renderIcon(cat.icon)}
+                                {cat.name}
+                              </Badge>
+                            )) : p.product_categories ? (
+                              <Badge variant="secondary" className="gap-1">
+                                {renderIcon(p.product_categories.icon)}
+                                {p.product_categories.name}
+                              </Badge>
+                            ) : <span className="text-muted-foreground text-sm">-</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{formatPrice(p.price)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Product dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
