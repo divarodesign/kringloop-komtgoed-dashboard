@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.lookup-address]
 verify_jwt = false
+
+[functions.wefact]
+verify_jwt = false
