@@ -14,7 +14,7 @@ import Klanten from "@/pages/admin/Klanten";
 import Klussen from "@/pages/admin/Klussen";
 import NieuweKlus from "@/pages/admin/NieuweKlus";
 import KlusDetail from "@/pages/admin/KlusDetail";
-import Planbord from "@/pages/admin/Planbord";
+import Agenda from "@/pages/admin/Agenda";
 import Opleveringen from "@/pages/admin/Opleveringen";
 import Producten from "@/pages/admin/Producten";
 import Financieel from "@/pages/admin/Financieel";
@@ -40,7 +40,7 @@ const App = () => (
               <Route path="klussen" element={<Klussen />} />
               <Route path="klussen/nieuw" element={<NieuweKlus />} />
               <Route path="klussen/:id" element={<KlusDetail />} />
-              <Route path="planbord" element={<Planbord />} />
+              <Route path="agenda" element={<Agenda />} />
               <Route path="opleveringen" element={<Opleveringen />} />
               <Route path="producten" element={<Producten />} />
               <Route path="financieel" element={<Financieel />} />
