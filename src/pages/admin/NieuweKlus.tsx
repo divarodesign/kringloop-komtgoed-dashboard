@@ -105,6 +105,7 @@ const NieuweKlus = () => {
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [isDirect, setIsDirect] = useState(false);
+  const [isQuoteRequest, setIsQuoteRequest] = useState(false);
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
   const [housingType, setHousingType] = useState("");
@@ -290,7 +291,7 @@ const NieuweKlus = () => {
       advised_price: jobType === "ontruiming" ? advisedPrice : null,
       custom_price: jobType === "ontruiming" && customPrice ? parseFloat(customPrice) : null,
       work_address: workAddress || null, work_city: workCity || null, work_postal_code: workPostalCode || null,
-      scheduled_date: isDirect ? null : scheduledDate || null, scheduled_time: isDirect ? null : scheduledTime || null, is_direct: isDirect,
+      scheduled_date: (isDirect || isQuoteRequest) ? null : scheduledDate || null, scheduled_time: (isDirect || isQuoteRequest) ? null : scheduledTime || null, is_direct: isDirect,
       created_by: user?.id || null,
     }).select().single();
     if (jobErr) { toast({ title: "Fout", description: jobErr.message, variant: "destructive" }); return; }
@@ -864,20 +865,33 @@ const NieuweKlus = () => {
           <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Planning</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
             <div className="flex items-center gap-2">
-              <Checkbox id="direct" checked={isDirect} onCheckedChange={(c) => { setIsDirect(!!c); if (c) { setScheduledDate(""); setScheduledTime(""); } }} />
-              <Label htmlFor="direct" className="text-sm">Direct uitvoeren</Label>
+              <Checkbox id="quote-request" checked={isQuoteRequest} onCheckedChange={(c) => { setIsQuoteRequest(!!c); if (c) { setIsDirect(false); setScheduledDate(""); setScheduledTime(""); } }} />
+              <Label htmlFor="quote-request" className="text-sm">Dit is een offerte aanvraag (planning later)</Label>
             </div>
-            {!isDirect && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label className="text-xs">Geplande datum</Label>
-                  <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            {!isQuoteRequest && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="direct" checked={isDirect} onCheckedChange={(c) => { setIsDirect(!!c); if (c) { setScheduledDate(""); setScheduledTime(""); } }} />
+                  <Label htmlFor="direct" className="text-sm">Direct uitvoeren</Label>
                 </div>
-                <div className="grid gap-1.5">
-                  <Label className="text-xs">Tijd</Label>
-                  <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
-                </div>
-              </div>
+                {!isDirect && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Geplande datum</Label>
+                      <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Tijd</Label>
+                      <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {isQuoteRequest && (
+              <p className="text-xs text-muted-foreground bg-muted rounded-lg p-3">
+                De klus wordt aangemaakt als offerte aanvraag. Je kunt de planning later toevoegen wanneer de offerte is geaccepteerd.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -895,7 +909,7 @@ const NieuweKlus = () => {
               <div><span className="text-xs text-muted-foreground">Klus:</span> <span className="text-xs font-medium">{title}</span></div>
               <div><span className="text-xs text-muted-foreground">Type:</span> <Badge variant="secondary" className="capitalize text-[10px] ml-1">{jobType}</Badge></div>
               <div><span className="text-xs text-muted-foreground">Klant:</span> <span className="text-xs font-medium">{newCustomer ? customerForm.name : customers.find(c => c.id === customerId)?.name}</span></div>
-              <div><span className="text-xs text-muted-foreground">Planning:</span> <span className="text-xs font-medium">{isDirect ? "Direct" : `${scheduledDate || "-"}${scheduledTime ? ` om ${scheduledTime}` : ""}`}</span></div>
+              <div><span className="text-xs text-muted-foreground">Planning:</span> <span className="text-xs font-medium">{isQuoteRequest ? "Offerte aanvraag" : isDirect ? "Direct" : `${scheduledDate || "-"}${scheduledTime ? ` om ${scheduledTime}` : ""}`}</span></div>
               {workAddress && <div className="sm:col-span-2"><span className="text-xs text-muted-foreground">Werkadres:</span> <span className="text-xs font-medium">{[workAddress, workPostalCode, workCity].filter(Boolean).join(", ")}</span></div>}
             </div>
             {rooms.filter(r => r.products.length > 0).map(room => (
