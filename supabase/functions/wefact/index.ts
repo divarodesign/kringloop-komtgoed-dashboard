@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WEFACT_URL = "https://api.wefact.nl/v2/";
+const WEFACT_URL = "https://api.mijnwefact.nl/v2/";
 
 async function wefactRequest(controller: string, action: string, params: Record<string, unknown> = {}) {
   const apiKey = Deno.env.get("WEFACT_API_KEY");
