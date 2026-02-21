@@ -39,6 +39,7 @@ const Agenda = () => {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const navigate = useNavigate();
 
   // Compute date range based on view
@@ -232,37 +233,92 @@ const Agenda = () => {
   // ─── MONTH VIEW ──────────────────────────────────
   const MonthView = () => {
     const currentMonth = currentDate.getMonth();
+    const selectedDateStr = toDateStr(selectedDay);
+    const selectedDayJobs = jobsByDate[selectedDateStr] || [];
+
     return (
       <>
-        {/* Mobile: list only days with jobs */}
-        <div className="sm:hidden space-y-3">
-          {dates
-            .filter((d) => d.getMonth() === currentMonth && (jobsByDate[toDateStr(d)]?.length || 0) > 0)
-            .map((date, i) => {
-              const dateStr = toDateStr(date);
-              const dayJobs = jobsByDate[dateStr] || [];
-              const today = isToday(date);
-              return (
-                <div key={i}>
-                  <div className={`flex items-center gap-2 mb-1.5 ${today ? "text-primary" : "text-muted-foreground"}`}>
-                    <span className={`text-sm font-bold ${today ? "bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center" : ""}`}>
+        {/* Mobile: iPhone-style calendar */}
+        <div className="sm:hidden">
+          {/* Compact calendar grid */}
+          <div className="bg-card rounded-2xl border border-border p-3 mb-3">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 mb-2">
+              {DAYS_SHORT.map((d) => (
+                <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground">{d}</div>
+              ))}
+            </div>
+            {/* Date cells */}
+            <div className="grid grid-cols-7 gap-y-1">
+              {dates.map((date, i) => {
+                const dateStr = toDateStr(date);
+                const hasJobs = (jobsByDate[dateStr]?.length || 0) > 0;
+                const today = isToday(date);
+                const inMonth = date.getMonth() === currentMonth;
+                const isSelected = dateStr === selectedDateStr;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedDay(new Date(date))}
+                    className="flex flex-col items-center py-1 rounded-xl transition-colors"
+                  >
+                    <span
+                      className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : today
+                            ? "bg-primary/15 text-primary font-bold"
+                            : inMonth
+                              ? "text-foreground"
+                              : "text-muted-foreground/30"
+                      }`}
+                    >
                       {date.getDate()}
                     </span>
-                    <span className="text-xs">
-                      {date.toLocaleDateString("nl-NL", { weekday: "long", month: "short" })}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-auto">{dayJobs.length}</Badge>
+                    {/* Dot indicator */}
+                    <span className={`w-1 h-1 rounded-full mt-0.5 ${hasJobs && !isSelected ? "bg-primary" : hasJobs && isSelected ? "bg-primary-foreground" : "bg-transparent"}`} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected day header */}
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <p className="text-sm font-semibold text-foreground">
+              {selectedDay.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })}
+            </p>
+            {isToday(selectedDay) && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary">Vandaag</Badge>
+            )}
+          </div>
+
+          {/* Selected day's events */}
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Laden...</div>
+          ) : selectedDayJobs.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground">Geen klussen</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedDayJobs.map((j) => (
+                <div
+                  key={j.id}
+                  onClick={() => navigate(`/admin/klussen/${j.id}`)}
+                  className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border cursor-pointer active:scale-[0.98] transition-transform"
+                >
+                  <div className="w-1 self-stretch rounded-full bg-primary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{j.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{j.customers?.name}</p>
+                    {j.work_address && (
+                      <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{j.work_address}, {j.work_city}</p>
+                    )}
                   </div>
-                  <div className="space-y-1.5 pl-1">
-                    {dayJobs.map((j) => <JobCard key={j.id} job={j} />)}
-                  </div>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">{j.status}</Badge>
                 </div>
-              );
-            })}
-          {dates.filter((d) => d.getMonth() === currentMonth && (jobsByDate[toDateStr(d)]?.length || 0) > 0).length === 0 && !loading && (
-            <div className="text-center py-12">
-              <Clock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Geen klussen deze maand</p>
+              ))}
             </div>
           )}
         </div>
@@ -270,13 +326,9 @@ const Agenda = () => {
         {/* Desktop: calendar grid */}
         <div className="hidden sm:block">
           <div className="grid grid-cols-7 gap-0 border border-border rounded-xl overflow-hidden">
-            {/* Header */}
             {DAYS_SHORT.map((d) => (
-              <div key={d} className="p-2 text-center text-[11px] font-semibold text-muted-foreground bg-muted/50 border-b border-border">
-                {d}
-              </div>
+              <div key={d} className="p-2 text-center text-[11px] font-semibold text-muted-foreground bg-muted/50 border-b border-border">{d}</div>
             ))}
-            {/* Days */}
             {dates.map((date, i) => {
               const dateStr = toDateStr(date);
               const dayJobs = jobsByDate[dateStr] || [];
@@ -292,25 +344,13 @@ const Agenda = () => {
                   <p className={`text-xs font-medium mb-1 ${
                     today
                       ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center"
-                      : !inMonth
-                        ? "text-muted-foreground/40"
-                        : "text-foreground"
-                  }`}>
-                    {date.getDate()}
-                  </p>
+                      : !inMonth ? "text-muted-foreground/40" : "text-foreground"
+                  }`}>{date.getDate()}</p>
                   <div className="space-y-0.5">
                     {dayJobs.slice(0, 3).map((j) => (
-                      <div
-                        key={j.id}
-                        onClick={() => navigate(`/admin/klussen/${j.id}`)}
-                        className="text-[10px] leading-tight p-1 rounded bg-primary/10 text-foreground truncate cursor-pointer hover:bg-primary/20 transition-colors"
-                      >
-                        {j.title}
-                      </div>
+                      <div key={j.id} onClick={() => navigate(`/admin/klussen/${j.id}`)} className="text-[10px] leading-tight p-1 rounded bg-primary/10 text-foreground truncate cursor-pointer hover:bg-primary/20 transition-colors">{j.title}</div>
                     ))}
-                    {dayJobs.length > 3 && (
-                      <p className="text-[10px] text-muted-foreground pl-1">+{dayJobs.length - 3} meer</p>
-                    )}
+                    {dayJobs.length > 3 && <p className="text-[10px] text-muted-foreground pl-1">+{dayJobs.length - 3} meer</p>}
                   </div>
                 </div>
               );
