@@ -161,12 +161,12 @@ Deno.serve(async (req) => {
           const roomName = roomNames[ri];
           // Add blank separator between rooms (not before first)
           if (ri > 0) {
-            lines.push({ Description: "", Number: 0, PriceExcl: 0 });
+            lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
           }
-          // Add room header in bold (WeFact supports <b> in descriptions)
+          // Add room header line
           lines.push({
-            Description: `<b>${roomName}</b>`,
-            Number: 0,
+            Description: `=== ${roomName.toUpperCase()} ===`,
+            Number: 1,
             PriceExcl: 0,
           });
           for (const item of roomGroups[roomName]) {
