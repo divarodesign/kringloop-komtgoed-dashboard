@@ -29,6 +29,19 @@ interface MultiCatProduct {
   selected: boolean;
 }
 
+type ImportRowStatus = 'new' | 'duplicate' | 'multi_cat';
+
+interface AnalyzedRow {
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  category_id: string | null;
+  status: ImportRowStatus;
+  existingCategories?: string[];
+  icon: string | null;
+}
+
 const Producten = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -49,6 +62,7 @@ const Producten = () => {
   const [catForm, setCatForm] = useState({ name: "", description: "", icon: "" });
   const [bulkCatText, setBulkCatText] = useState("");
   const [importData, setImportData] = useState<any[]>([]);
+  const [analyzedRows, setAnalyzedRows] = useState<AnalyzedRow[]>([]);
   const [importCategoryId, setImportCategoryId] = useState("");
   const [importing, setImporting] = useState(false);
   const { toast } = useToast();
@@ -221,6 +235,70 @@ const Producten = () => {
     toast({ title: "Template gedownload", description: "Open in Excel en gebruik de dropdown bij 'categorie'." });
   };
 
+  const analyzeImportData = (data: any[]) => {
+    const catMap = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c.id]));
+    const catIdToName = new Map(categories.map((c) => [c.id, c.name]));
+
+    const existingProductMap = new Map<string, { id: string; categoryIds: string[] }>();
+    for (const p of products) {
+      const key = p.name.toLowerCase().trim();
+      const linkedCatIds = productCategoryLinks
+        .filter((l) => l.product_id === p.id)
+        .map((l) => l.category_id as string);
+      if (p.category_id && !linkedCatIds.includes(p.category_id)) {
+        linkedCatIds.push(p.category_id);
+      }
+      existingProductMap.set(key, { id: p.id, categoryIds: linkedCatIds });
+    }
+
+    const seenNew = new Set<string>();
+    const rows: AnalyzedRow[] = data.map((row) => {
+      const name = String(row.naam || row.name || row.Naam || row.Name || "").trim();
+      const catName = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
+      const matchedCatId = catMap.get(catName.toLowerCase()) || importCategoryId || null;
+      const description = String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim();
+      const price = parseFloat(String(row.prijs || row.price || row.Prijs || row.Price || "0").replace(",", ".")) || 0;
+      const categoryLabel = catName || (importCategoryId ? catIdToName.get(importCategoryId) || "" : "");
+
+      if (!name) return null as any;
+
+      const existing = existingProductMap.get(name.toLowerCase().trim());
+
+      if (existing) {
+        if (matchedCatId && !existing.categoryIds.includes(matchedCatId)) {
+          return {
+            name, description, price, category: categoryLabel, category_id: matchedCatId,
+            status: 'multi_cat' as ImportRowStatus,
+            existingCategories: existing.categoryIds.map((id) => catIdToName.get(id) || "Onbekend"),
+            icon: guessIcon(name),
+          };
+        }
+        return {
+          name, description, price, category: categoryLabel, category_id: matchedCatId,
+          status: 'duplicate' as ImportRowStatus,
+          icon: guessIcon(name),
+        };
+      }
+
+      if (seenNew.has(name.toLowerCase().trim())) {
+        return {
+          name, description, price, category: categoryLabel, category_id: matchedCatId,
+          status: 'duplicate' as ImportRowStatus,
+          icon: guessIcon(name),
+        };
+      }
+
+      seenNew.add(name.toLowerCase().trim());
+      return {
+        name, description, price, category: categoryLabel, category_id: matchedCatId,
+        status: 'new' as ImportRowStatus,
+        icon: guessIcon(name),
+      };
+    }).filter(Boolean);
+
+    setAnalyzedRows(rows);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -239,85 +317,67 @@ const Producten = () => {
     reader.readAsBinaryString(file);
   };
 
+  // Re-analyze when importData or importCategoryId changes
+  useEffect(() => {
+    if (importData.length > 0) analyzeImportData(importData);
+    else setAnalyzedRows([]);
+  }, [importData, importCategoryId, products, productCategoryLinks]);
+
   const handleImport = async () => {
-    if (importData.length === 0) return;
+    if (analyzedRows.length === 0) return;
     setImporting(true);
 
-    const catMap = new Map(categories.map((c) => [c.name.toLowerCase().trim(), c.id]));
     const catIdToName = new Map(categories.map((c) => [c.id, c.name]));
 
-    // Build existing product lookup: name → { id, category_ids }
+    // Build existing product lookup
     const existingProductMap = new Map<string, { id: string; categoryIds: string[] }>();
     for (const p of products) {
       const key = p.name.toLowerCase().trim();
       const linkedCatIds = productCategoryLinks
         .filter((l) => l.product_id === p.id)
         .map((l) => l.category_id as string);
-      // Include legacy category_id
-      if (p.category_id && !linkedCatIds.includes(p.category_id)) {
-        linkedCatIds.push(p.category_id);
-      }
+      if (p.category_id && !linkedCatIds.includes(p.category_id)) linkedCatIds.push(p.category_id);
       existingProductMap.set(key, { id: p.id, categoryIds: linkedCatIds });
     }
 
-    const allRows = importData.map((row) => {
-      const name = String(row.naam || row.name || row.Naam || row.Name || "").trim();
-      const catName = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
-      const matchedCatId = catMap.get(catName.toLowerCase()) || importCategoryId || null;
-      return {
-        name,
-        description: String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim() || null,
-        price: parseFloat(String(row.prijs || row.price || row.Prijs || row.Price || "0").replace(",", ".")) || 0,
-        category_id: matchedCatId,
-        icon: guessIcon(name),
-      };
-    }).filter((p) => p.name);
+    const newRows = analyzedRows.filter((r) => r.status === 'new');
+    const multiCatRows = analyzedRows.filter((r) => r.status === 'multi_cat');
 
-    // Separate: truly new products vs existing products with a new category
-    const newProducts: typeof allRows = [];
-    const multiCatItems: MultiCatProduct[] = [];
-    const seenNew = new Set<string>();
-
-    for (const row of allRows) {
-      const key = row.name.toLowerCase().trim();
-      const existing = existingProductMap.get(key);
-
-      if (existing) {
-        // Product exists - check if this is a new category
-        if (row.category_id && !existing.categoryIds.includes(row.category_id)) {
-          // Already in multiCatItems?
-          const alreadyAdded = multiCatItems.find((m) => m.existingProductId === existing.id && m.newCategoryId === row.category_id);
-          if (!alreadyAdded) {
-            multiCatItems.push({
-              existingProductId: existing.id,
-              name: row.name,
-              existingCategories: existing.categoryIds.map((id) => catIdToName.get(id) || "Onbekend"),
-              newCategory: catIdToName.get(row.category_id) || "Onbekend",
-              newCategoryId: row.category_id,
-              selected: true,
-            });
-          }
-        }
-        // Skip creating duplicate product
-      } else {
-        if (!seenNew.has(key)) {
-          seenNew.add(key);
-          newProducts.push(row);
-        }
+    // If multi-cat items exist, show confirmation dialog
+    if (multiCatRows.length > 0) {
+      const multiCatItems: MultiCatProduct[] = [];
+      const seenKeys = new Set<string>();
+      for (const row of multiCatRows) {
+        const existing = existingProductMap.get(row.name.toLowerCase().trim());
+        if (!existing || !row.category_id) continue;
+        const uniqueKey = `${existing.id}_${row.category_id}`;
+        if (seenKeys.has(uniqueKey)) continue;
+        seenKeys.add(uniqueKey);
+        multiCatItems.push({
+          existingProductId: existing.id,
+          name: row.name,
+          existingCategories: row.existingCategories || [],
+          newCategory: catIdToName.get(row.category_id) || "Onbekend",
+          newCategoryId: row.category_id,
+          selected: true,
+        });
       }
-    }
-
-    // If there are multi-category products, show confirmation dialog first
-    if (multiCatItems.length > 0) {
       setMultiCatProducts(multiCatItems);
-      setPendingNewProducts(newProducts);
+      setPendingNewProducts(newRows.map((r) => ({
+        name: r.name, description: r.description || null, price: r.price,
+        category_id: r.category_id, icon: r.icon,
+      })));
       setMultiCatDialogOpen(true);
       setImporting(false);
       return;
     }
 
-    // No multi-cat items, proceed with normal import
-    await executeImport(newProducts, []);
+    // No multi-cat, just import new products
+    const payload = newRows.map((r) => ({
+      name: r.name, description: r.description || null, price: r.price,
+      category_id: r.category_id, icon: r.icon,
+    }));
+    await executeImport(payload, []);
   };
 
   const executeImport = async (newProducts: any[], categoryLinks: { productId: string; categoryId: string }[]) => {
@@ -623,44 +683,63 @@ const Producten = () => {
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs text-muted-foreground">💡 <strong>Dubbele producten</strong> worden niet opnieuw aangemaakt. Als een product al bestaat maar in een andere categorie staat, kun je het aan meerdere categorieën koppelen.</p>
             </div>
-            {importData.length > 0 && (
-              <div className="border rounded-lg overflow-auto max-h-64">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Naam</TableHead>
-                      <TableHead className="text-xs">Beschrijving</TableHead>
-                      <TableHead className="text-xs">Prijs</TableHead>
-                      <TableHead className="text-xs">Categorie</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {importData.slice(0, 10).map((row, i) => {
-                      const naam = String(row.naam || row.name || row.Naam || row.Name || "").trim();
-                      const beschrijving = String(row.beschrijving || row.description || row.Beschrijving || row.Description || "").trim();
-                      const prijs = String(row.prijs || row.price || row.Prijs || row.Price || "0").replace(",", ".");
-                      const categorie = String(row.categorie || row.category || row.Categorie || row.Category || "").trim();
-                      return (
-                        <TableRow key={i}>
-                          <TableCell className="text-xs py-1">{naam}</TableCell>
-                          <TableCell className="text-xs py-1">{beschrijving}</TableCell>
-                          <TableCell className="text-xs py-1">€ {parseFloat(prijs).toFixed(2)}</TableCell>
-                          <TableCell className="text-xs py-1">{categorie || <span className="text-muted-foreground">-</span>}</TableCell>
+            {analyzedRows.length > 0 && (() => {
+              const newCount = analyzedRows.filter((r) => r.status === 'new').length;
+              const dupCount = analyzedRows.filter((r) => r.status === 'duplicate').length;
+              const multiCount = analyzedRows.filter((r) => r.status === 'multi_cat').length;
+              return (
+                <>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary">{newCount} nieuw</Badge>
+                    {dupCount > 0 && <Badge variant="secondary" className="bg-muted text-muted-foreground">{dupCount} dubbel (overgeslagen)</Badge>}
+                    {multiCount > 0 && <Badge variant="secondary" className="bg-accent text-accent-foreground">{multiCount} extra categorie-koppeling</Badge>}
+                  </div>
+                  <div className="border rounded-lg overflow-auto max-h-64">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-[70px]">Status</TableHead>
+                          <TableHead className="text-xs">Naam</TableHead>
+                          <TableHead className="text-xs">Beschrijving</TableHead>
+                          <TableHead className="text-xs">Prijs</TableHead>
+                          <TableHead className="text-xs">Categorie</TableHead>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                {importData.length > 10 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">...en {importData.length - 10} meer rijen</p>
-                )}
-              </div>
-            )}
+                      </TableHeader>
+                      <TableBody>
+                        {analyzedRows.slice(0, 20).map((row, i) => (
+                          <TableRow key={i} className={row.status === 'duplicate' ? 'opacity-40' : ''}>
+                            <TableCell className="text-xs py-1">
+                              {row.status === 'new' && <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">Nieuw</Badge>}
+                              {row.status === 'duplicate' && <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground">Dubbel</Badge>}
+                              {row.status === 'multi_cat' && <Badge variant="secondary" className="text-[10px] bg-accent text-accent-foreground">+ Cat</Badge>}
+                            </TableCell>
+                            <TableCell className="text-xs py-1">{row.name}</TableCell>
+                            <TableCell className="text-xs py-1">{row.description}</TableCell>
+                            <TableCell className="text-xs py-1">€ {row.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs py-1">{row.category || <span className="text-muted-foreground">-</span>}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {analyzedRows.length > 20 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">...en {analyzedRows.length - 20} meer rijen</p>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportData([]); }}>Annuleren</Button>
-            <Button onClick={handleImport} disabled={importData.length === 0 || importing}>
-              {importing ? "Importeren..." : `${importData.length} producten importeren`}
+            <Button onClick={handleImport} disabled={analyzedRows.length === 0 || importing || (analyzedRows.filter((r) => r.status !== 'duplicate').length === 0)}>
+              {importing ? "Importeren..." : (() => {
+                const newCount = analyzedRows.filter((r) => r.status === 'new').length;
+                const multiCount = analyzedRows.filter((r) => r.status === 'multi_cat').length;
+                const parts: string[] = [];
+                if (newCount > 0) parts.push(`${newCount} nieuw`);
+                if (multiCount > 0) parts.push(`${multiCount} koppeling`);
+                return parts.length > 0 ? `${parts.join(" + ")} importeren` : "Geen nieuwe producten";
+              })()}
             </Button>
           </DialogFooter>
         </DialogContent>
