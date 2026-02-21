@@ -591,30 +591,76 @@ const NieuweKlus = () => {
                               <p className="text-xs font-semibold">Kies een categorie</p>
                               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => updateRoom(room.id, { browsing: false })}>Sluiten</Button>
                             </div>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                              {categories.map(cat => {
-                                const catProductIds = categoryLinks.filter(l => l.category_id === cat.id).map(l => l.product_id);
-                                const catProds = products.filter(p => catProductIds.includes(p.id) || p.category_id === cat.id);
-                                const selectedInCat = room.products.filter(sp => catProds.some(cp => cp.id === sp.product_id));
-                                return (
-                                  <button
-                                    key={cat.id}
-                                    onClick={() => updateRoom(room.id, { activeCategoryId: cat.id, productSearch: "" })}
-                                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all touch-manipulation active:scale-[0.95] relative shadow-sm"
-                                  >
-                                    {selectedInCat.length > 0 && (
-                                      <div className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">
-                                        {selectedInCat.reduce((s, p) => s + p.quantity, 0)}
-                                      </div>
-                                    )}
-                                    <div className="h-8 w-8 flex items-center justify-center text-primary">
-                                      {renderLucideIcon(cat.icon, "h-5 w-5")}
-                                    </div>
-                                    <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">{cat.name}</span>
-                                  </button>
-                                );
-                              })}
+                            {/* Global product search */}
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Zoek product op naam..."
+                                value={room.productSearch}
+                                onChange={(e) => updateRoom(room.id, { productSearch: e.target.value })}
+                                className="pl-8 h-8 text-xs"
+                              />
                             </div>
+                            {room.productSearch ? (
+                              <>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {getCategoryProducts(null, room.productSearch).map(product => {
+                                    const qty = getRoomProductQuantity(room.id, product.id);
+                                    const isSelected = qty > 0;
+                                    return (
+                                      <div
+                                        key={product.id}
+                                        onClick={() => !isSelected && setRoomProductQuantity(room.id, product, 1)}
+                                        className={`flex flex-col items-center p-2.5 rounded-xl border transition-all shadow-sm cursor-pointer touch-manipulation active:scale-[0.97] ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50 bg-card"}`}
+                                      >
+                                        <div className="h-8 w-8 flex items-center justify-center text-primary mb-1">
+                                          {renderLucideIcon(product.icon, "h-5 w-5")}
+                                        </div>
+                                        <p className="text-[10px] font-medium text-center leading-tight line-clamp-2 mb-0.5">{product.name}</p>
+                                        {isSelected ? (
+                                          <div className="flex items-center gap-1 mt-auto" onClick={(e) => e.stopPropagation()}>
+                                            <button onClick={() => setRoomProductQuantity(room.id, product, -1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Minus className="h-3 w-3" /></button>
+                                            <span className="text-xs font-bold w-5 text-center">{qty}</span>
+                                            <button onClick={() => setRoomProductQuantity(room.id, product, 1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Plus className="h-3 w-3" /></button>
+                                          </div>
+                                        ) : (
+                                          <div className="mt-auto h-7 w-7 rounded-lg bg-muted flex items-center justify-center"><Plus className="h-3.5 w-3.5" /></div>
+                                        )}
+                                        <span className="text-[10px] text-muted-foreground mt-0.5">{formatPrice(product.price)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {getCategoryProducts(null, room.productSearch).length === 0 && (
+                                  <p className="text-xs text-muted-foreground text-center py-4">Geen producten gevonden</p>
+                                )}
+                              </>
+                            ) : (
+                              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                {categories.map(cat => {
+                                  const catProductIds = categoryLinks.filter(l => l.category_id === cat.id).map(l => l.product_id);
+                                  const catProds = products.filter(p => catProductIds.includes(p.id) || p.category_id === cat.id);
+                                  const selectedInCat = room.products.filter(sp => catProds.some(cp => cp.id === sp.product_id));
+                                  return (
+                                    <button
+                                      key={cat.id}
+                                      onClick={() => updateRoom(room.id, { activeCategoryId: cat.id, productSearch: "" })}
+                                      className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all touch-manipulation active:scale-[0.95] relative shadow-sm"
+                                    >
+                                      {selectedInCat.length > 0 && (
+                                        <div className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">
+                                          {selectedInCat.reduce((s, p) => s + p.quantity, 0)}
+                                        </div>
+                                      )}
+                                      <div className="h-8 w-8 flex items-center justify-center text-primary">
+                                        {renderLucideIcon(cat.icon, "h-5 w-5")}
+                                      </div>
+                                      <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">{cat.name}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </>
                         ) : (
                           <>
