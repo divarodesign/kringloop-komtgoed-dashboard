@@ -488,6 +488,33 @@ const NieuweKlus = () => {
         <Card>
           <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Kosten & Korting</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
+            {/* Product summary with delete option */}
+            {selectedProducts.length > 0 && (
+              <div className="border rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold">Geselecteerde producten</p>
+                {selectedProducts.map((sp, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <span className="text-xs truncate flex-1">{sp.description}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">×{sp.quantity}</span>
+                    <span className="text-xs font-medium shrink-0">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setSelectedProducts(prev => prev.filter((_, idx) => idx !== i))}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+                <p className="text-xs font-bold text-right border-t pt-1.5">Subtotaal producten: {formatPrice(productsTotal)}</p>
+              </div>
+            )}
+
+            {jobType === "ontruiming" && selectedProducts.length > 0 && (
+              <div className="border rounded-xl p-3 space-y-2 bg-muted/30">
+                <p className="text-xs">Adviesprijs: <span className="font-medium">{formatPrice(advisedPrice)}</span></p>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Eigen prijs (optioneel)</Label>
+                  <Input type="number" step="0.01" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} placeholder="Laat leeg voor adviesprijs" className="h-8 text-xs" />
+                </div>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label className="text-xs">Overige kosten (€)</Label>
               <Input type="number" step="0.01" value={extraCosts} onChange={(e) => setExtraCosts(e.target.value)} placeholder="0.00" />
