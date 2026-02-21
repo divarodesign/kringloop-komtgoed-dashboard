@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download, AlertTriangle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, FolderPlus, Upload, Layers, Download, AlertTriangle, RefreshCw } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IconPicker from "@/components/IconPicker";
@@ -99,6 +99,17 @@ const Producten = () => {
     return matchSearch && (p.category_id === activeCategory || linkedCatIds.includes(activeCategory));
   });
 
+  const reassignAllIcons = async () => {
+    const updates = products.map((p) => ({ id: p.id, icon: guessIcon(p.name) }));
+    let updated = 0;
+    for (const u of updates) {
+      const { error } = await supabase.from("products").update({ icon: u.icon }).eq("id", u.id);
+      if (!error) updated++;
+    }
+    toast({ title: `${updated} icons bijgewerkt` });
+    fetchData();
+  };
+
   const openNew = () => { setEditing(null); setForm({ name: "", description: "", price: "", category_id: "", icon: "" }); setDialogOpen(true); };
   const openEdit = (p: any) => {
     setEditing(p);
@@ -164,40 +175,79 @@ const Producten = () => {
     fetchData();
   };
 
-  // Auto-icon mapping
-  const iconKeywords: Record<string, string[]> = {
-    Sofa: ["bank", "sofa", "zetel", "couch"],
-    Bed: ["bed", "matras", "slaap"],
-    ArmchairIcon: ["stoel", "fauteuil", "chair"],
-    Table: ["tafel", "bureau", "desk"],
-    Lamp: ["lamp", "verlichting", "light"],
-    Tv: ["tv", "televisie", "scherm", "monitor"],
-    Refrigerator: ["koelkast", "vriezer", "fridge"],
-    WashingMachine: ["wasmachine", "droger", "washer"],
-    Microwave: ["magnetron", "oven", "microwave"],
-    Bike: ["fiets", "bike"],
-    Car: ["auto", "car", "voertuig"],
-    Shirt: ["kleding", "shirt", "broek", "jas", "clothes"],
-    BookOpen: ["boek", "book", "magazine"],
-    Monitor: ["computer", "laptop", "pc"],
-    Smartphone: ["telefoon", "phone", "mobiel", "smartphone"],
-    Music: ["muziek", "instrument", "piano", "gitaar"],
-    Dumbbell: ["sport", "fitness", "gym"],
-    Flower2: ["tuin", "plant", "bloem", "garden"],
-    Utensils: ["keuken", "bestek", "pan", "bord"],
-    Package: ["doos", "box", "verpakking", "container"],
-    Trash2: ["afval", "grof", "puin", "sloop"],
-    TreePine: ["hout", "plank", "timber"],
-    Paintbrush: ["verf", "decoratie", "schilderij"],
-    Baby: ["baby", "kinder", "speelgoed"],
-    GraduationCap: ["school", "kantoor", "office"],
-    Wine: ["horeca", "restaurant", "bar"],
-    Wrench: ["gereedschap", "tool", "werktuig"],
-  };
+  // Auto-icon mapping - ordered by specificity (most specific first)
+  const iconRules: [string, string[]][] = [
+    // Zitmeubels
+    ["Sofa", ["bank", "sofa", "zetel", "couch", "loungeset", "hoek", "slaapbank"]],
+    ["Armchair", ["fauteuil", "lounge fauteuil", "relax", "sta op stoel", "hocker", "poef", "voetenbank"]],
+    // Bedden & matrassen
+    ["BedDouble", ["bed 2-pers", "boxspring 2", "kingsize"]],
+    ["BedSingle", ["bed 1-pers", "boxspring 1", "bed zorg", "hoog-laag"]],
+    ["Bed", ["bed", "matras", "topper", "bedbodem", "hoofdbord"]],
+    // Stoelen
+    ["Armchair", ["stoel directeur", "vergaderstoel", "stoel massage", "bureaustoel"]],
+    ["Armchair", ["stoel bureau"]],
+    ["Chair", ["stoel", "krukje", "eetkamer", "terras"]],
+    // Tafels & bureaus
+    ["Table", ["tafel", "bureau", "salon", "bijzet", "directie", "picknick", "aanrecht"]],
+    // Kasten & opslag
+    ["DoorClosed", ["kast", "dressoir", "commode", "ladekast", "tv meubel", "wandmeubel", "stelling", "archief", "roldeur", "toog", "mechelse", "dekenkist", "nachtkastje", "ladeblok"]],
+    // Keukenapparatuur
+    ["Refrigerator", ["koelkast", "vriezer", "amerikaanse", "tafelmodel", "wijn", "vitrine"]],
+    ["CookingPot", ["fornuis", "oven", "vaatwasser", "kookplaat", "keukenblok"]],
+    ["Wind", ["afzuigkap"]],
+    ["Microwave", ["magnetron"]],
+    // Huishoudelijk
+    ["WashingMachine", ["wasmachine", "droger", "washer", "stofzuiger"]],
+    ["Shirt", ["kleding", "shirt", "broek", "jas", "clothes"]],
+    ["Iron", ["strijkijzer", "strijkplank", "droogrek"]],
+    // Lampen
+    ["Lamp", ["lamp", "verlichting", "light", "lampje", "staande lamp"]],
+    ["LampDesk", ["bureaulamp"]],
+    // Elektronica
+    ["Tv", ["tv", "televisie", "scherm"]],
+    ["Monitor", ["computer", "laptop", "pc monitor", "monitor"]],
+    ["Printer", ["printer", "kopieerapparaat"]],
+    ["Smartphone", ["telefoon", "phone", "mobiel", "smartphone"]],
+    ["Speaker", ["speaker", "geluidsbox"]],
+    // Sport & fitness
+    ["Dumbbell", ["fitness", "gym", "hometrainer", "loopband", "spinning"]],
+    // Fietsen & wielen
+    ["Bike", ["fiets", "bakfiets", "spinning fiets"]],
+    ["CircleDot", ["autoband", "banden"]],
+    ["Car", ["auto", "scooter", "scootmobiel", "rollator", "rolstoel", "kruiwagen"]],
+    // Tuin & buiten
+    ["Fence", ["schutting", "hek"]],
+    ["Umbrella", ["parasol"]],
+    ["Flame", ["bbq", "gas bbq", "kamado"]],
+    ["Droplets", ["jacuzzi", "hottub", "opblaasbaar"]],
+    ["TreePine", ["hout", "plank", "timber", "bielzen", "pallet"]],
+    ["Leaf", ["tuin", "plant", "bloem", "garden", "snoei", "groen", "groei", "kamerplant"]],
+    // Bouw & puin
+    ["HardHat", ["bouw", "sloop", "puin", "steenpuin", "tegels", "glasblok", "glasbok", "kozijn", "deur", "radiator", "douchecabine", "badkuip", "glasplaat", "betonvoet"]],
+    ["Trash2", ["afval", "grof", "container", "kliko", "rol container", "prullenbak", "piepschuim"]],
+    // Kantoor & horeca
+    ["Building2", ["horeca", "restaurant", "bar", "kassabalie", "kassa", "paspop"]],
+    ["GraduationCap", ["school", "kantoor", "office", "leerling"]],
+    // Muziek
+    ["Music", ["muziek", "instrument", "piano", "gitaar"]],
+    // Divers
+    ["Paintbrush", ["verf", "decoratie", "schilderij", "spiegel"]],
+    ["Baby", ["baby", "kinder", "speelgoed", "krabpaal"]],
+    ["BookOpen", ["boek", "book", "magazine", "papier", "karton"]],
+    ["Wrench", ["gereedschap", "tool", "werktuig"]],
+    ["RectangleHorizontal", ["laminaat", "tapijt", "ondervloer", "vloer"]],
+    ["Shirt", ["dressboy", "kapstok", "kapstop"]],
+    ["FlameKindling", ["brandblusser"]],
+    ["Wind", ["airco", "mobiele airco"]],
+    ["Milk", ["flessen"]],
+    ["Home", ["appartement", "leegruimen", "hoarder", "ontruiming"]],
+    ["Package", ["doos", "box", "verpakking", "puinzak", "los afval"]],
+  ];
 
-  const guessIcon = (name: string): string | null => {
+  const guessIcon = (name: string): string => {
     const lower = name.toLowerCase();
-    for (const [icon, keywords] of Object.entries(iconKeywords)) {
+    for (const [icon, keywords] of iconRules) {
       if (keywords.some((kw) => lower.includes(kw))) return icon;
     }
     return "Package";
@@ -489,7 +539,8 @@ const Producten = () => {
           <h1 className="text-2xl font-bold tracking-tight">Producten</h1>
           <p className="text-muted-foreground">Productcatalogus beheren</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={reassignAllIcons}><RefreshCw className="mr-2 h-4 w-4" /> Icons herberekenen</Button>
           <Button variant="outline" onClick={() => setImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" /> Excel import</Button>
           <Button variant="outline" onClick={() => setBulkCatDialogOpen(true)}><Layers className="mr-2 h-4 w-4" /> Bulk categorieën</Button>
           <Button variant="outline" onClick={() => setCatDialogOpen(true)}><FolderPlus className="mr-2 h-4 w-4" /> Categorie</Button>
