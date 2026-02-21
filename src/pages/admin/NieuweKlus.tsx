@@ -100,6 +100,7 @@ const NieuweKlus = () => {
   const [workAddress, setWorkAddress] = useState("");
   const [workCity, setWorkCity] = useState("");
   const [workPostalCode, setWorkPostalCode] = useState("");
+  const [sameAsCustomer, setSameAsCustomer] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [isDirect, setIsDirect] = useState(false);
   const [calculatingDistance, setCalculatingDistance] = useState(false);
@@ -412,8 +413,9 @@ const NieuweKlus = () => {
               <div className="flex items-center gap-2 mb-3">
                 <Checkbox
                   id="sameAsCustomer"
-                  checked={false}
+                  checked={sameAsCustomer}
                   onCheckedChange={(checked) => {
+                    setSameAsCustomer(!!checked);
                     if (checked) {
                       if (newCustomer) {
                         setWorkAddress(customerForm.address);
@@ -427,6 +429,10 @@ const NieuweKlus = () => {
                           setWorkCity(customer.city || "");
                         }
                       }
+                    } else {
+                      setWorkAddress("");
+                      setWorkPostalCode("");
+                      setWorkCity("");
                     }
                   }}
                 />
