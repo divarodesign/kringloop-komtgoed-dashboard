@@ -123,36 +123,26 @@ const NieuweKlus = () => {
   };
 
   const setProductQuantity = (product: Product, delta: number) => {
-    const existing = selectedProducts.find(p => p.product_id === product.id);
-    if (existing) {
-      const newQty = existing.quantity + delta;
-      if (newQty <= 0) {
-        setSelectedProducts(selectedProducts.filter(p => p.product_id !== product.id));
-      } else {
-        setSelectedProducts(selectedProducts.map(p =>
+    setSelectedProducts(prev => {
+      const existing = prev.find(p => p.product_id === product.id);
+      if (existing) {
+        const newQty = existing.quantity + delta;
+        if (newQty <= 0) {
+          return prev.filter(p => p.product_id !== product.id);
+        }
+        return prev.map(p =>
           p.product_id === product.id ? { ...p, quantity: newQty } : p
-        ));
+        );
+      } else if (delta > 0) {
+        return [...prev, {
+          product_id: product.id,
+          description: product.name,
+          quantity: 1,
+          unit_price: product.price,
+        }];
       }
-    } else if (delta > 0) {
-      setSelectedProducts([...selectedProducts, {
-        product_id: product.id,
-        description: product.name,
-        quantity: 1,
-        unit_price: product.price,
-      }]);
-    }
-    // Recalc advised price for ontruiming
-    if (jobType === "ontruiming") {
-      setTimeout(() => {
-        setAdvisedPrice(prev => {
-          const updated = selectedProducts.find(p => p.product_id === product.id);
-          const allProducts = existing
-            ? selectedProducts.map(p => p.product_id === product.id ? { ...p, quantity: Math.max(0, p.quantity + delta) } : p).filter(p => p.quantity > 0)
-            : [...selectedProducts, { product_id: product.id, description: product.name, quantity: 1, unit_price: product.price }];
-          return allProducts.reduce((s, p) => s + p.quantity * p.unit_price, 0);
-        });
-      }, 0);
-    }
+      return prev;
+    });
   };
 
   // Recalculate advisedPrice whenever selectedProducts changes
