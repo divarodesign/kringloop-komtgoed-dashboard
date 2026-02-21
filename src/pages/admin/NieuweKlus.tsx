@@ -985,9 +985,27 @@ const NieuweKlus = () => {
                   <div key={room.id} className="space-y-1">
                     <p className="text-xs font-semibold flex items-center gap-1.5"><DoorOpen className="h-3 w-3 text-primary" />{room.name}</p>
                     {room.products.map((p, i) => (
-                      <div key={i} className="flex justify-between text-[11px] pl-4 text-muted-foreground">
-                        <span className="truncate flex-1">{p.description} ×{p.quantity}</span>
-                        <span className="font-medium text-foreground ml-2">{formatPrice(p.quantity * p.unit_price)}</span>
+                      <div key={i} className="flex items-center text-[11px] pl-4 text-muted-foreground gap-1">
+                        <span className="truncate flex-1">{p.description}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            className="h-5 w-5 rounded border flex items-center justify-center hover:bg-muted"
+                            onClick={(e) => { e.stopPropagation(); setRooms(prev => prev.map(r => r.id !== room.id ? r : { ...r, products: r.products.map((pr, pi) => pi !== i ? pr : { ...pr, quantity: Math.max(1, pr.quantity - 1) }) })); }}
+                          ><Minus className="h-3 w-3" /></button>
+                          <span className="text-foreground font-medium w-4 text-center">{p.quantity}</span>
+                          <button
+                            type="button"
+                            className="h-5 w-5 rounded border flex items-center justify-center hover:bg-muted"
+                            onClick={(e) => { e.stopPropagation(); setRooms(prev => prev.map(r => r.id !== room.id ? r : { ...r, products: r.products.map((pr, pi) => pi !== i ? pr : { ...pr, quantity: pr.quantity + 1 }) })); }}
+                          ><Plus className="h-3 w-3" /></button>
+                          <button
+                            type="button"
+                            className="h-5 w-5 rounded flex items-center justify-center text-destructive hover:bg-destructive/10 ml-1"
+                            onClick={(e) => { e.stopPropagation(); setRooms(prev => prev.map(r => r.id !== room.id ? r : { ...r, products: r.products.filter((_, pi) => pi !== i) })); }}
+                          ><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                        <span className="font-medium text-foreground ml-1 w-16 text-right">{formatPrice(p.quantity * p.unit_price)}</span>
                       </div>
                     ))}
                   </div>
