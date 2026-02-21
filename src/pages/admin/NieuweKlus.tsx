@@ -654,8 +654,16 @@ const NieuweKlus = () => {
                 {selectedProducts.map((sp, i) => (
                   <div key={i} className="flex items-center justify-between gap-2">
                     <span className="text-xs truncate flex-1">{sp.description}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">×{sp.quantity}</span>
-                    <span className="text-xs font-medium shrink-0">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="outline" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.map((p, idx) => idx === i ? { ...p, quantity: Math.max(1, p.quantity - 1) } : p)); }}>
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="text-xs w-5 text-center font-medium">{sp.quantity}</span>
+                      <Button variant="outline" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.map((p, idx) => idx === i ? { ...p, quantity: p.quantity + 1 } : p)); }}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <span className="text-xs font-medium shrink-0 w-16 text-right">{formatPrice(sp.quantity * sp.unit_price)}</span>
                     <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); setSelectedProducts(prev => prev.filter((_, idx) => idx !== i)); }}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
