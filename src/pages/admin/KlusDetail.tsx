@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -29,6 +29,7 @@ const KlusDetail = () => {
   const { toast } = useToast();
   const [job, setJob] = useState<Job | null>(null);
   const [items, setItems] = useState<JobItem[]>([]);
+  const [roomPhotos, setRoomPhotos] = useState<{ id: string; room_name: string; photo_url: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,13 +52,15 @@ const KlusDetail = () => {
   const [lookingUp, setLookingUp] = useState(false);
 
   const fetchJob = async () => {
-    const [{ data: j }, { data: ji }, { data: p }] = await Promise.all([
+    const [{ data: j }, { data: ji }, { data: p }, { data: rp }] = await Promise.all([
       supabase.from("jobs").select("*, customers(*)").eq("id", id!).single(),
       supabase.from("job_items").select("*, products(*)").eq("job_id", id!),
       supabase.from("profiles").select("*").eq("is_active", true),
+      supabase.from("job_room_photos").select("*").eq("job_id", id!),
     ]);
     setJob(j as Job);
     setItems((ji as JobItem[]) || []);
+    setRoomPhotos((rp as any[]) || []);
     setProfiles((p as Profile[]) || []);
     setLoading(false);
   };
@@ -407,35 +410,87 @@ const KlusDetail = () => {
         </Card>
       )}
 
-      {/* Products */}
-      {items.length > 0 && (
-        <Card>
-          <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2"><CardTitle className="text-sm">Producten / Werkzaamheden</CardTitle></CardHeader>
-          <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="sm:hidden space-y-2">
-              {items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm truncate">{item.description}</p>
-                    <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.unit_price)}</p>
-                  </div>
-                  <span className="text-sm font-medium shrink-0 ml-3">{formatPrice(item.quantity * item.unit_price)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b"><th className="text-left py-2 font-medium text-muted-foreground">Omschrijving</th><th className="text-right py-2 font-medium text-muted-foreground">Aantal</th><th className="text-right py-2 font-medium text-muted-foreground">Stuksprijs</th><th className="text-right py-2 font-medium text-muted-foreground">Totaal</th></tr></thead>
-                <tbody>
+      {items.length > 0 && (() => {
+        // Group items by room_name
+        const roomGroups: Record<string, JobItem[]> = {};
+        items.forEach(item => {
+          const room = (item as any).room_name || "Overig";
+          if (!roomGroups[room]) roomGroups[room] = [];
+          roomGroups[room].push(item);
+        });
+        const roomNames = Object.keys(roomGroups);
+        const hasRooms = roomNames.length > 1 || (roomNames.length === 1 && roomNames[0] !== "Overig");
+
+        return (
+          <Card>
+            <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2"><CardTitle className="text-sm">Producten / Werkzaamheden</CardTitle></CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-0 space-y-4">
+              {hasRooms ? (
+                roomNames.map(roomName => {
+                  const roomItems = roomGroups[roomName];
+                  const roomTotal = roomItems.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+                  const photos = roomPhotos.filter(p => p.room_name === roomName);
+
+                  return (
+                    <div key={roomName} className="border rounded-xl p-3 space-y-2">
+                      <p className="text-xs font-semibold flex items-center gap-1.5">
+                        <DoorOpen className="h-3.5 w-3.5 text-primary" /> {roomName}
+                      </p>
+                      {roomItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1 pl-5">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm truncate">{item.description}</p>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0 mx-2">×{item.quantity}</span>
+                          <span className="text-sm font-medium shrink-0">{formatPrice(item.quantity * item.unit_price)}</span>
+                        </div>
+                      ))}
+                      <p className="text-xs font-bold text-right border-t pt-1.5">Subtotaal: {formatPrice(roomTotal)}</p>
+                      {photos.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium flex items-center gap-1 mb-1.5"><Camera className="h-3 w-3 text-muted-foreground" /> Foto's</p>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            {photos.map(photo => (
+                              <a key={photo.id} href={photo.photo_url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden aspect-square border hover:opacity-80 transition-opacity">
+                                <img src={photo.photo_url} alt={`${roomName} foto`} className="w-full h-full object-cover" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="space-y-2">
                   {items.map((item) => (
-                    <tr key={item.id} className="border-b last:border-0"><td className="py-2">{item.description}</td><td className="text-right py-2">{item.quantity}</td><td className="text-right py-2">{formatPrice(item.unit_price)}</td><td className="text-right py-2">{formatPrice(item.quantity * item.unit_price)}</td></tr>
+                    <div key={item.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm truncate">{item.description}</p>
+                        <p className="text-xs text-muted-foreground">{item.quantity}× {formatPrice(item.unit_price)}</p>
+                      </div>
+                      <span className="text-sm font-medium shrink-0 ml-3">{formatPrice(item.quantity * item.unit_price)}</span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                </div>
+              )}
+              {/* Show room photos without room grouping */}
+              {!hasRooms && roomPhotos.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium flex items-center gap-1 mb-1.5"><Camera className="h-3 w-3 text-muted-foreground" /> Foto's</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {roomPhotos.map(photo => (
+                      <a key={photo.id} href={photo.photo_url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden aspect-square border hover:opacity-80 transition-opacity">
+                        <img src={photo.photo_url} alt="Kamer foto" className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Extra costs - editing */}
       {editing && (

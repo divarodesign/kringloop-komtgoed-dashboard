@@ -268,9 +268,14 @@ const NieuweKlus = () => {
     }).select().single();
     if (jobErr) { toast({ title: "Fout", description: jobErr.message, variant: "destructive" }); return; }
     if (selectedProducts.length > 0) {
-      await supabase.from("job_items").insert(
-        selectedProducts.map((p) => ({ job_id: job.id, product_id: p.product_id, description: p.description, quantity: p.quantity, unit_price: p.unit_price }))
-      );
+      // Map products to their room names
+      const itemsWithRooms: { job_id: string; product_id: string | null; description: string; quantity: number; unit_price: number; room_name: string | null }[] = [];
+      for (const room of rooms) {
+        for (const p of room.products) {
+          itemsWithRooms.push({ job_id: job.id, product_id: p.product_id, description: p.description, quantity: p.quantity, unit_price: p.unit_price, room_name: room.name });
+        }
+      }
+      await supabase.from("job_items").insert(itemsWithRooms);
     }
     // Upload room photos
     const roomsWithPhotos = rooms.filter(r => r.photos.length > 0);
