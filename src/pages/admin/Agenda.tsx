@@ -26,7 +26,10 @@ interface AgendaItem {
   type: "job" | "appointment";
   subtitle?: string;
   detail?: string;
+  address?: string;
   status?: string;
+  description?: string;
+  customerId?: string | null;
 }
 
 const DAYS_SHORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
@@ -57,6 +60,8 @@ const Agenda = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<AgendaItem | null>(null);
   const [newAppt, setNewAppt] = useState({ title: "", description: "", date: "", time: "", customer_id: "" });
   const [newCustomer, setNewCustomer] = useState(false);
   const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "", address: "", postal_code: "", city: "" });
@@ -129,10 +134,13 @@ const Agenda = () => {
     });
     appointments.forEach((a) => {
       if (!map[a.appointment_date]) map[a.appointment_date] = [];
+      const cust = a.customers;
+      const addr = cust?.address ? `${cust.address}${cust.city ? `, ${cust.city}` : ""}` : undefined;
       map[a.appointment_date].push({
         id: a.id, title: a.title, time: a.appointment_time || null,
-        date: a.appointment_date, type: "appointment", subtitle: a.customers?.name || undefined,
-        detail: a.description || undefined,
+        date: a.appointment_date, type: "appointment", subtitle: cust?.name || undefined,
+        detail: a.description || undefined, address: addr,
+        description: a.description || undefined, customerId: a.customer_id || null,
       });
     });
     // Sort each day by time
@@ -196,10 +204,27 @@ const Agenda = () => {
     toast({ title: "Afspraak verwijderd" });
   };
 
+  const openAppointmentDetail = (item: AgendaItem) => {
+    setSelectedAppointment(item);
+    setShowDetailDialog(true);
+  };
+
+  const convertToJob = () => {
+    if (!selectedAppointment) return;
+    const params = new URLSearchParams();
+    if (selectedAppointment.customerId) params.set("customer_id", selectedAppointment.customerId);
+    if (selectedAppointment.date) params.set("date", selectedAppointment.date);
+    if (selectedAppointment.time) params.set("time", selectedAppointment.time);
+    params.set("title", selectedAppointment.title);
+    if (selectedAppointment.description) params.set("description", selectedAppointment.description);
+    params.set("from_appointment", selectedAppointment.id);
+    navigate(`/admin/klussen/nieuw?${params.toString()}`);
+  };
+
   // ─── ITEM CARD ──────────────────────────────────
   const ItemCard = ({ item, compact = false }: { item: AgendaItem; compact?: boolean }) => (
     <div
-      onClick={() => item.type === "job" ? navigate(`/admin/klussen/${item.id}`) : undefined}
+      onClick={() => item.type === "job" ? navigate(`/admin/klussen/${item.id}`) : openAppointmentDetail(item)}
       className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer active:scale-[0.98] transition-transform ${
         item.type === "job" ? "bg-primary/10 border-primary/20" : "bg-accent/50 border-accent"
       }`}
@@ -211,6 +236,7 @@ const Agenda = () => {
       <div className="min-w-0 flex-1">
         <p className={`${compact ? "text-[11px]" : "text-sm"} font-medium truncate`}>{compact && item.time ? `${item.time} ` : ""}{item.title}</p>
         {!compact && item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
+        {!compact && item.address && <p className="text-[11px] text-muted-foreground truncate">{item.address}</p>}
       </div>
       {!compact && item.type === "appointment" && (
         <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); deleteAppointment(item.id); }}>
@@ -378,7 +404,7 @@ const Agenda = () => {
                     {items.slice(0, 3).map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => item.type === "job" ? navigate(`/admin/klussen/${item.id}`) : undefined}
+                        onClick={() => item.type === "job" ? navigate(`/admin/klussen/${item.id}`) : openAppointmentDetail(item)}
                         className={`text-[10px] leading-tight p-1 rounded truncate cursor-pointer transition-colors ${
                           item.type === "job" ? "bg-primary/10 hover:bg-primary/20 text-foreground" : "bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-foreground"
                         }`}
@@ -503,6 +529,60 @@ const Agenda = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>Annuleren</Button>
             <Button onClick={saveAppointment}>Opslaan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Appointment Detail Dialog */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-orange-500" />
+              {selectedAppointment?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium">Datum</p>
+                  <p className="text-sm">{new Date(selectedAppointment.date).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+                </div>
+                {selectedAppointment.time && (
+                  <div>
+                    <p className="text-[11px] text-muted-foreground font-medium">Tijd</p>
+                    <p className="text-sm">{selectedAppointment.time}</p>
+                  </div>
+                )}
+              </div>
+              {selectedAppointment.subtitle && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium">Klant</p>
+                  <p className="text-sm">{selectedAppointment.subtitle}</p>
+                </div>
+              )}
+              {selectedAppointment.address && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium">Adres</p>
+                  <p className="text-sm">{selectedAppointment.address}</p>
+                </div>
+              )}
+              {selectedAppointment.description && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium">Omschrijving</p>
+                  <p className="text-sm">{selectedAppointment.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="destructive" size="sm" onClick={() => { deleteAppointment(selectedAppointment!.id); setShowDetailDialog(false); }}>
+              <Trash2 className="h-3.5 w-3.5 mr-1" /> Verwijderen
+            </Button>
+            <Button onClick={convertToJob} className="gap-1.5">
+              <Briefcase className="h-4 w-4" /> Omzetten naar klus
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
