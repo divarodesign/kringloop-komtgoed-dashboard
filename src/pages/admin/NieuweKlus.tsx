@@ -231,6 +231,13 @@ const NieuweKlus = () => {
     setCalculatingDistance(false);
   };
 
+  // Auto-calculate distance when work address is filled
+  useEffect(() => {
+    if (workAddress && workCity && companyAddress && !travelKm && !calculatingDistance) {
+      calculateDistance();
+    }
+  }, [workAddress, workCity, companyAddress]);
+
   const travelCost = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
   const subtotal = jobType === "ontruiming" ? (parseFloat(customPrice) || advisedPrice) : productsTotal;
