@@ -54,8 +54,22 @@ export interface Job {
   advised_price: number | null;
   custom_price: number | null;
   scheduled_date: string | null;
+  scheduled_time: string | null;
   is_direct: boolean;
   assigned_to: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  customers?: Customer;
+}
+
+export interface Appointment {
+  id: string;
+  title: string;
+  description: string | null;
+  appointment_date: string;
+  appointment_time: string | null;
+  customer_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

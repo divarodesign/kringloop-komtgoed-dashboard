@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          appointment_date: string
+          appointment_time: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -306,6 +350,7 @@ export type Database = {
           is_direct: boolean
           job_type: string
           scheduled_date: string | null
+          scheduled_time: string | null
           status: string
           title: string
           travel_cost: number
@@ -331,6 +376,7 @@ export type Database = {
           is_direct?: boolean
           job_type?: string
           scheduled_date?: string | null
+          scheduled_time?: string | null
           status?: string
           title: string
           travel_cost?: number
@@ -356,6 +402,7 @@ export type Database = {
           is_direct?: boolean
           job_type?: string
           scheduled_date?: string | null
+          scheduled_time?: string | null
           status?: string
           title?: string
           travel_cost?: number
