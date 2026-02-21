@@ -1011,7 +1011,9 @@ const NieuweKlus = () => {
           {step < STEPS.length - 1 ? (
             <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
           ) : (
-            <Button size="sm" onClick={handleSubmit}><Check className="mr-1.5 h-4 w-4" /> Aanmaken</Button>
+            <Button size="sm" onClick={handleSubmit}>
+              <Check className="mr-1.5 h-4 w-4" /> {isQuoteRequest ? "Offerte versturen" : "Aanmaken"}
+            </Button>
           )}
         </div>
       </div>
