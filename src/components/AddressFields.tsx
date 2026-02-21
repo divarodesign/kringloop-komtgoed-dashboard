@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,29 +28,34 @@ const AddressFields = ({
   const [looking, setLooking] = useState(false);
   const { toast } = useToast();
 
-  const lookupAddress = async () => {
-    if (!postalCode || !huisnummer) {
-      toast({ title: "Vul postcode en huisnummer in", variant: "destructive" });
-      return;
-    }
+  const lookupAddress = useCallback(async (pc: string, nr: string) => {
+    if (!pc || pc.replace(/\s/g, "").length < 6 || !nr) return;
     setLooking(true);
     try {
       const { data, error } = await supabase.functions.invoke("lookup-address", {
-        body: { postcode: postalCode.replace(/\s/g, ""), huisnummer },
+        body: { postcode: pc.replace(/\s/g, ""), huisnummer: nr },
       });
       if (error) throw error;
-      if (data?.error) {
-        toast({ title: data.error, variant: "destructive" });
-      } else if (data?.straat) {
-        onAddressChange(`${data.straat} ${huisnummer}`);
+      if (data?.straat) {
+        onAddressChange(`${data.straat} ${nr}`);
         if (data.stad) onCityChange(data.stad);
-        toast({ title: "Adres gevonden!" });
+      } else if (data?.error) {
+        toast({ title: data.error, variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "Fout bij opzoeken", description: e.message, variant: "destructive" });
     }
     setLooking(false);
-  };
+  }, [onAddressChange, onCityChange, toast]);
+
+  // Auto-trigger lookup when postcode and huisnummer are filled
+  useEffect(() => {
+    const cleanPostcode = postalCode.replace(/\s/g, "");
+    if (cleanPostcode.length >= 6 && huisnummer.length >= 1) {
+      const timer = setTimeout(() => lookupAddress(postalCode, huisnummer), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [postalCode, huisnummer, lookupAddress]);
 
   return (
     <div className="space-y-3">
@@ -66,23 +70,14 @@ const AddressFields = ({
         </div>
         <div className="grid gap-1.5">
           <Label className={labelSize}>Huisnummer *</Label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Input
               value={huisnummer}
               onChange={(e) => setHuisnummer(e.target.value)}
               placeholder="12a"
               className="flex-1"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-10 w-10"
-              onClick={lookupAddress}
-              disabled={looking || !postalCode || !huisnummer}
-            >
-              {looking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            </Button>
+            {looking && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
           </div>
         </div>
       </div>

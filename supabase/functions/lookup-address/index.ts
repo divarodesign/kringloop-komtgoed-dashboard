@@ -21,6 +21,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // Use tool calling for structured output instead of asking for JSON in prompt
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -32,13 +33,32 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Je bent een Nederlands adres-lookup systeem. Gegeven een Nederlandse postcode en huisnummer, geef je het volledige adres terug. Antwoord ALLEEN met een JSON object in dit formaat: {"straat": "Straatnaam", "stad": "Plaatsnaam"}. Als je het adres niet kunt vinden, antwoord dan met: {"straat": "", "stad": "", "error": "Adres niet gevonden"}. Geef GEEN extra tekst of uitleg.`
+            content: `Je bent een Nederlands adres-lookup systeem. Gegeven een Nederlandse postcode en huisnummer, geef je de EXACTE straatnaam en plaatsnaam terug. Gebruik je kennis van het Nederlandse postcodesysteem. Elke Nederlandse postcode (4 cijfers + 2 letters) correspondeert met een specifieke straat in een specifieke plaats. Geef ALLEEN de straatnaam terug (zonder huisnummer).`
           },
           {
             role: "user",
-            content: `Postcode: ${postcode}, Huisnummer: ${huisnummer}`
+            content: `Wat is het adres voor postcode ${postcode}, huisnummer ${huisnummer}? Geef de straatnaam (zonder huisnummer) en plaatsnaam.`
           }
         ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "return_address",
+              description: "Return the street name and city for the given Dutch postal code and house number.",
+              parameters: {
+                type: "object",
+                properties: {
+                  straat: { type: "string", description: "De straatnaam zonder huisnummer" },
+                  stad: { type: "string", description: "De plaatsnaam/stad" },
+                },
+                required: ["straat", "stad"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "return_address" } },
       }),
     });
 
@@ -64,20 +84,29 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
-
-    // Parse JSON from AI response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return new Response(JSON.stringify({ error: "Kon adres niet verwerken" }), {
-        status: 500,
+    
+    // Extract from tool call response
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      const addressData = JSON.parse(toolCall.function.arguments);
+      console.log("Address found:", addressData);
+      return new Response(JSON.stringify(addressData), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const addressData = JSON.parse(jsonMatch[0]);
+    // Fallback: try parsing content as JSON
+    const content = data.choices?.[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const addressData = JSON.parse(jsonMatch[0]);
+      return new Response(JSON.stringify(addressData), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    return new Response(JSON.stringify(addressData), {
+    return new Response(JSON.stringify({ error: "Kon adres niet verwerken" }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
