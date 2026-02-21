@@ -254,6 +254,38 @@ export type Database = {
           },
         ]
       }
+      job_room_photos: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          photo_url: string
+          room_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          photo_url: string
+          room_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          photo_url?: string
+          room_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_room_photos_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           advised_price: number | null
