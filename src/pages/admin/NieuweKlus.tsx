@@ -106,6 +106,7 @@ const NieuweKlus = () => {
   const [scheduledTime, setScheduledTime] = useState("");
   const [isDirect, setIsDirect] = useState(false);
   const [isQuoteRequest, setIsQuoteRequest] = useState(false);
+  const [stickyExpanded, setStickyExpanded] = useState(false);
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
   const [housingType, setHousingType] = useState("");
@@ -963,14 +964,36 @@ const NieuweKlus = () => {
         {/* Running total bar - visible during product selection steps */}
         {selectedProducts.length > 0 && (step === 1 || step === 2 || step === 3) && (
           <div className="bg-card border-t sm:rounded-xl sm:border sm:mb-2 sm:mx-0">
-            <div className="w-full px-4 py-2 flex items-center justify-between">
+            <button
+              type="button"
+              className="w-full px-4 py-2 flex items-center justify-between"
+              onClick={() => setStickyExpanded(prev => !prev)}
+            >
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-[10px]">{selectedProducts.reduce((s, p) => s + p.quantity, 0)} items</Badge>
                 <span className="text-xs text-muted-foreground">{rooms.filter(r => r.products.length > 0).length} kamer(s)</span>
                 {travelCost > 0 && <span className="text-xs text-muted-foreground">+ {formatPrice(travelCost)} voorrijkosten</span>}
               </div>
-              <span className="text-sm font-bold">{formatPrice(productsTotal + travelCost)}</span>
-            </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">{formatPrice(productsTotal + travelCost)}</span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${stickyExpanded ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+            {stickyExpanded && (
+              <div className="px-4 pb-3 max-h-60 overflow-y-auto border-t space-y-2 pt-2">
+                {rooms.filter(r => r.products.length > 0).map(room => (
+                  <div key={room.id} className="space-y-1">
+                    <p className="text-xs font-semibold flex items-center gap-1.5"><DoorOpen className="h-3 w-3 text-primary" />{room.name}</p>
+                    {room.products.map((p, i) => (
+                      <div key={i} className="flex justify-between text-[11px] pl-4 text-muted-foreground">
+                        <span className="truncate flex-1">{p.description} ×{p.quantity}</span>
+                        <span className="font-medium text-foreground ml-2">{formatPrice(p.quantity * p.unit_price)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
