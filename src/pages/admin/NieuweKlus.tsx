@@ -425,10 +425,11 @@ const NieuweKlus = () => {
                   const qty = getProductQuantity(product.id);
                   const isSelected = qty > 0;
 
-                  return (
+                    return (
                     <div
                       key={product.id}
-                      className={`flex flex-col items-center p-3 rounded-xl border transition-all shadow-sm ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50 bg-card"}`}
+                      onClick={() => !isSelected && setProductQuantity(product, 1)}
+                      className={`flex flex-col items-center p-3 rounded-xl border transition-all shadow-sm cursor-pointer touch-manipulation active:scale-[0.97] ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border/50 bg-card"}`}
                     >
                       <div className="h-10 w-10 flex items-center justify-center text-primary mb-1.5">
                         {renderLucideIcon(product.icon, "h-6 w-6")}
@@ -440,7 +441,7 @@ const NieuweKlus = () => {
 
                       {/* Quantity controls */}
                       {isSelected ? (
-                        <div className="flex items-center gap-1 mt-auto">
+                        <div className="flex items-center gap-1 mt-auto" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setProductQuantity(product, -1)}
                             className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
@@ -456,12 +457,9 @@ const NieuweKlus = () => {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setProductQuantity(product, 1)}
-                          className="mt-auto h-8 w-8 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90 transition-transform"
-                        >
+                        <div className="mt-auto h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
                           <Plus className="h-4 w-4" />
-                        </button>
+                        </div>
                       )}
 
                       <span className="text-[10px] text-muted-foreground mt-1">{formatPrice(product.price)}</span>
