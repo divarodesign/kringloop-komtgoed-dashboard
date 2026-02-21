@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import AddressFields from "@/components/AddressFields";
 import type { Customer, Product, ProductCategory } from "@/types/database";
 
-const STEPS = ["Klant", "Type", "Producten", "Kosten", "Adres", "Overzicht"];
+const STEPS = ["Klant", "Type", "Producten", "Kosten", "Planning", "Overzicht"];
 
 const calcTravelCost = (km: number) => {
   if (km <= 75) return 89;
@@ -405,6 +405,38 @@ const NieuweKlus = () => {
               </div>
             </div>
 
+            {/* Werkadres */}
+            <div className="pt-2">
+              <p className="text-sm font-semibold mb-1">Werkadres</p>
+              <p className="text-xs text-muted-foreground mb-3">Vul het adres in waar de klus uitgevoerd wordt</p>
+              <AddressFields
+                address={workAddress}
+                postalCode={workPostalCode}
+                city={workCity}
+                onAddressChange={setWorkAddress}
+                onPostalCodeChange={setWorkPostalCode}
+                onCityChange={setWorkCity}
+              />
+              {(travelKm || calculatingDistance) && (
+                <div className="border rounded-xl p-3 mt-3 space-y-1.5 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium">Voorrijkosten</p>
+                      <p className="text-[10px] text-muted-foreground">Vanaf: {companyAddress || "Stel in bij Instellingen"}</p>
+                    </div>
+                    {calculatingDistance ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">{travelKm} km</p>
+                        <p className="text-sm font-bold">{formatPrice(travelCost)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Show selected products summary */}
             {selectedProducts.length > 0 && (
               <div className="border rounded-xl p-3 bg-muted/30 space-y-2">
@@ -719,34 +751,11 @@ const NieuweKlus = () => {
         </Card>
       )}
 
-      {/* Step 5: Werkadres */}
+      {/* Step 5: Planning */}
       {step === 4 && (
         <Card>
-          <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Werkadres & Planning</CardTitle></CardHeader>
+          <CardHeader className="p-4 sm:p-6 pb-2"><CardTitle className="text-base">Planning</CardTitle></CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-3">
-            <AddressFields
-              address={workAddress}
-              postalCode={workPostalCode}
-              city={workCity}
-              onAddressChange={setWorkAddress}
-              onPostalCodeChange={setWorkPostalCode}
-              onCityChange={setWorkCity}
-            />
-            <div className="border rounded-xl p-3 space-y-2 bg-muted/30">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <Label className="text-xs">Afstand (enkele reis)</Label>
-                  <p className="text-[10px] text-muted-foreground truncate">Vanaf: {companyAddress || "Stel in bij Instellingen"}</p>
-                </div>
-                <Button variant="outline" size="sm" className="h-7 text-xs shrink-0" onClick={calculateDistance} disabled={calculatingDistance || !workAddress}>
-                  {calculatingDistance ? <Loader2 className="h-3 w-3 animate-spin" /> : <><MapPin className="mr-1 h-3 w-3" /> Bereken</>}
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-1"><Label className="text-[10px]">Afstand (km)</Label><Input type="number" value={travelKm} onChange={(e) => setTravelKm(e.target.value)} className="h-8 text-xs" /></div>
-                <div className="flex items-end">{travelKm && <p className="text-xs font-medium pb-2">Voorrijkosten: {formatPrice(travelCost)}</p>}</div>
-              </div>
-            </div>
             <div className="flex items-center gap-2">
               <Checkbox id="direct" checked={isDirect} onCheckedChange={(c) => { setIsDirect(!!c); if (c) setScheduledDate(""); }} />
               <Label htmlFor="direct" className="text-sm">Direct uitvoeren</Label>
