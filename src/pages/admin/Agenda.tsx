@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import AddressFields from "@/components/AddressFields";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,7 +59,7 @@ const Agenda = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newAppt, setNewAppt] = useState({ title: "", description: "", date: "", time: "", customer_id: "" });
   const [newCustomer, setNewCustomer] = useState(false);
-  const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "" });
+  const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "", address: "", postal_code: "", city: "" });
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -163,7 +164,7 @@ const Agenda = () => {
   const openAddDialog = (preDate?: string) => {
     setNewAppt({ title: "", description: "", date: preDate || toDateStr(currentDate), time: "", customer_id: "" });
     setNewCustomer(false);
-    setCustomerForm({ name: "", phone: "", email: "" });
+    setCustomerForm({ name: "", phone: "", email: "", address: "", postal_code: "", city: "" });
     setShowAddDialog(true);
   };
 
@@ -469,8 +470,19 @@ const Agenda = () => {
               {newCustomer ? (
                 <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-border">
                   <Input placeholder="Naam *" value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} />
-                  <Input placeholder="Telefoon" value={customerForm.phone} onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} />
-                  <Input placeholder="E-mail" value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="Telefoon" value={customerForm.phone} onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} />
+                    <Input placeholder="E-mail" value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} />
+                  </div>
+                  <AddressFields
+                    postalCode={customerForm.postal_code}
+                    address={customerForm.address}
+                    city={customerForm.city}
+                    onPostalCodeChange={(v) => setCustomerForm({ ...customerForm, postal_code: v })}
+                    onAddressChange={(v) => setCustomerForm({ ...customerForm, address: v })}
+                    onCityChange={(v) => setCustomerForm({ ...customerForm, city: v })}
+                    labelSize="text-[11px]"
+                  />
                 </div>
               ) : (
                 <Select value={newAppt.customer_id} onValueChange={(v) => setNewAppt({ ...newAppt, customer_id: v })}>
