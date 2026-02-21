@@ -217,6 +217,7 @@ export type Database = {
           job_id: string
           product_id: string | null
           quantity: number
+          room_name: string | null
           unit_price: number
         }
         Insert: {
@@ -226,6 +227,7 @@ export type Database = {
           job_id: string
           product_id?: string | null
           quantity?: number
+          room_name?: string | null
           unit_price?: number
         }
         Update: {
@@ -235,6 +237,7 @@ export type Database = {
           job_id?: string
           product_id?: string | null
           quantity?: number
+          room_name?: string | null
           unit_price?: number
         }
         Relationships: [
