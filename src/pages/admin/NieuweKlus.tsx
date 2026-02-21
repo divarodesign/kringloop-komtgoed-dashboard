@@ -962,7 +962,7 @@ const NieuweKlus = () => {
       {/* Sticky bottom: total + navigation */}
       <div className="fixed bottom-0 left-0 right-0 z-40 sm:static sm:z-auto">
         {/* Running total bar - visible during product selection steps */}
-        {selectedProducts.length > 0 && (step === 1 || step === 2 || step === 3) && (
+        {selectedProducts.length > 0 && (step === 1 || step === 2) && (
           <div className="bg-card border-t sm:rounded-xl sm:border sm:mb-2 sm:mx-0">
             <button
               type="button"
