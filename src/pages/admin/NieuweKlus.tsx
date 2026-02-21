@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -64,6 +64,7 @@ const NieuweKlus = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   // Room-based product selection
@@ -129,6 +130,31 @@ const NieuweKlus = () => {
         setCompanyAddress(addr);
       }
       setLoading(false);
+
+      // Pre-fill from URL params (e.g. when converting from appointment)
+      const paramCustomerId = searchParams.get("customer_id");
+      const paramTitle = searchParams.get("title");
+      const paramDate = searchParams.get("date");
+      const paramTime = searchParams.get("time");
+      const paramDesc = searchParams.get("description");
+
+      if (paramCustomerId) {
+        setCustomerId(paramCustomerId);
+        // Auto-fill work address from customer
+        const cust = (c as Customer[])?.find(cu => cu.id === paramCustomerId);
+        if (cust) {
+          setSameAsCustomer(true);
+          setWorkAddress(cust.address || "");
+          setWorkCity(cust.city || "");
+          setWorkPostalCode(cust.postal_code || "");
+        }
+        // Skip to step 1 (Type) since customer is already known
+        setStep(1);
+      }
+      if (paramTitle) setTitle(paramTitle);
+      if (paramDate) setScheduledDate(paramDate);
+      if (paramTime) setScheduledTime(paramTime);
+      if (paramDesc) setDescription(paramDesc);
     });
   }, []);
 
