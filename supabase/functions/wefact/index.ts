@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { action, job_id } = await req.json();
+    const { action, job_id, lines: customInvoiceLines } = await req.json();
 
     if (!job_id) throw new Error("job_id is required");
 
@@ -328,7 +328,6 @@ Deno.serve(async (req) => {
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
       const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * l.PriceExcl, 0);
 
-      // Save invoice in our DB
       await supabase.from("invoices").insert({
         job_id,
         invoice_number: invoiceNumber,
@@ -336,7 +335,36 @@ Deno.serve(async (req) => {
         status: "onbetaald",
       });
 
-      // Update job status
+      await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", job_id);
+
+      return new Response(
+        JSON.stringify({ success: true, invoice_number: invoiceNumber, wefact_id: invoiceResult.invoice?.Identifier }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "create_invoice_custom") {
+      const wefactLines = (customInvoiceLines || []).map((l: any) => ({
+        Description: l.description,
+        Number: l.quantity,
+        PriceExcl: l.price,
+      }));
+
+      const invoiceResult = await wefactRequest("invoice", "add", {
+        DebtorCode: debtorCode,
+        InvoiceLines: wefactLines,
+      });
+
+      const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
+      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * l.PriceExcl, 0);
+
+      await supabase.from("invoices").insert({
+        job_id,
+        invoice_number: invoiceNumber,
+        total_amount: totalAmount,
+        status: "onbetaald",
+      });
+
       await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", job_id);
 
       return new Response(
