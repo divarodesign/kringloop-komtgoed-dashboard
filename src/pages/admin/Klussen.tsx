@@ -72,7 +72,9 @@ const Klussen = () => {
     const discount = job.discount_type === "percentage"
       ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
       : job.discount_type === "fixed" ? job.discount_value : 0;
-    return subtotal + job.travel_cost + (job.extra_costs || 0) - discount;
+    const beforeSurcharge = subtotal + job.travel_cost + (job.extra_costs || 0) - discount;
+    const surcharge = beforeSurcharge * ((job.surcharge_percentage || 0) / 100);
+    return beforeSurcharge + surcharge;
   };
 
   const filtered = jobs.filter((j) => {
