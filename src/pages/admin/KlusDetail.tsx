@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera, FileText, Receipt, Send, CheckCircle, ClipboardCheck, Upload, Download } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera, FileText, Receipt, Send, CheckCircle, ClipboardCheck, Upload, Download, Plus } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +55,16 @@ const KlusDetail = () => {
   const [uploadingRoom, setUploadingRoom] = useState<string | null>(null);
   const [completingDelivery, setCompletingDelivery] = useState(false);
 
+  // Extra sales state
+  const [extraSales, setExtraSales] = useState<any[]>([]);
+  const [newExtraDesc, setNewExtraDesc] = useState("");
+  const [newExtraAmount, setNewExtraAmount] = useState("");
+  const [addingExtra, setAddingExtra] = useState(false);
+
+  // Invoice preview dialog state
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [invoiceLines, setInvoiceLines] = useState<{ description: string; quantity: number; price: number }[]>([]);
+
   // Edit form state
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -72,7 +82,7 @@ const KlusDetail = () => {
   const [lookingUp, setLookingUp] = useState(false);
 
   const fetchJob = async () => {
-    const [{ data: j }, { data: ji }, { data: p }, { data: rp }, { data: q }, { data: inv }, { data: del }] = await Promise.all([
+    const [{ data: j }, { data: ji }, { data: p }, { data: rp }, { data: q }, { data: inv }, { data: del }, { data: es }] = await Promise.all([
       supabase.from("jobs").select("*, customers(*)").eq("id", id!).single(),
       supabase.from("job_items").select("*, products(*)").eq("job_id", id!),
       supabase.from("profiles").select("*").eq("is_active", true),
@@ -80,6 +90,7 @@ const KlusDetail = () => {
       supabase.from("quotes").select("*").eq("job_id", id!).order("created_at", { ascending: false }),
       supabase.from("invoices").select("*").eq("job_id", id!).order("created_at", { ascending: false }),
       supabase.from("deliveries").select("*").eq("job_id", id!).order("created_at", { ascending: false }).limit(1),
+      supabase.from("extra_sales").select("*").eq("job_id", id!).order("created_at"),
     ]);
     setJob(j as Job);
     setItems((ji as JobItem[]) || []);
@@ -87,11 +98,11 @@ const KlusDetail = () => {
     setProfiles((p as Profile[]) || []);
     setQuotes(q || []);
     setInvoicesData(inv || []);
+    setExtraSales(es || []);
 
     const deliveryRecord = del && del.length > 0 ? (del[0] as Delivery) : null;
     setDelivery(deliveryRecord);
 
-    // Fetch delivery photos if delivery exists
     if (deliveryRecord) {
       const { data: dp } = await supabase
         .from("delivery_photos")
@@ -276,8 +287,7 @@ const KlusDetail = () => {
     if (!delivery || files.length === 0) return;
     setUploadingRoom(roomName);
 
-    // Find a job_item_id for this room
-    const roomItem = items.find(i => (i as any).room_name === roomName || (!( i as any).room_name && roomName === "Overig"));
+    const roomItem = items.find(i => (i as any).room_name === roomName || (!(i as any).room_name && roomName === "Overig"));
 
     for (const file of Array.from(files)) {
       const ext = file.name.split(".").pop() || "jpg";
@@ -304,7 +314,6 @@ const KlusDetail = () => {
       });
     }
 
-    // Refresh photos
     const { data: dp } = await supabase
       .from("delivery_photos")
       .select("*")
@@ -329,7 +338,6 @@ const KlusDetail = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Update job status
       await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", id!);
 
       toast({ title: "Oplevering voltooid! PDF is gegenereerd." });
@@ -340,7 +348,128 @@ const KlusDetail = () => {
     setCompletingDelivery(false);
   };
 
-  // Get room names from items
+  // ─── EXTRA SALES ───
+  const addExtraSale = async () => {
+    if (!newExtraDesc.trim() || !newExtraAmount) return;
+    setAddingExtra(true);
+    const { error } = await supabase.from("extra_sales").insert({
+      job_id: id!,
+      description: newExtraDesc.trim(),
+      amount: Number(newExtraAmount),
+    });
+    if (error) {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+    } else {
+      setNewExtraDesc("");
+      setNewExtraAmount("");
+      fetchJob();
+    }
+    setAddingExtra(false);
+  };
+
+  const updateExtraSale = async (esId: string, field: string, value: string | number) => {
+    const { error } = await supabase.from("extra_sales").update({ [field]: value }).eq("id", esId);
+    if (error) toast({ title: "Fout", description: error.message, variant: "destructive" });
+    else {
+      setExtraSales(prev => prev.map(es => es.id === esId ? { ...es, [field]: value } : es));
+    }
+  };
+
+  const deleteExtraSale = async (esId: string) => {
+    await supabase.from("extra_sales").delete().eq("id", esId);
+    setExtraSales(prev => prev.filter(es => es.id !== esId));
+  };
+
+  // ─── INVOICE PREVIEW ───
+  const buildInvoiceLines = () => {
+    const lines: { description: string; quantity: number; price: number }[] = [];
+
+    // Group items by room
+    const roomGroups: Record<string, JobItem[]> = {};
+    items.forEach(item => {
+      const room = (item as any).room_name || "Overig";
+      if (!roomGroups[room]) roomGroups[room] = [];
+      roomGroups[room].push(item);
+    });
+    const roomNames = Object.keys(roomGroups);
+    const hasRooms = roomNames.length > 1 || (roomNames.length === 1 && roomNames[0] !== "Overig");
+
+    if (job?.job_type === "ontruiming" && job.custom_price) {
+      lines.push({ description: "Ontruiming", quantity: 1, price: job.custom_price });
+    } else if (hasRooms) {
+      roomNames.forEach(roomName => {
+        roomGroups[roomName].forEach(item => {
+          lines.push({ description: `${roomName} — ${item.description}`, quantity: item.quantity, price: item.unit_price });
+        });
+      });
+    } else {
+      items.forEach(item => {
+        lines.push({ description: item.description, quantity: item.quantity, price: item.unit_price });
+      });
+    }
+
+    if (job && job.travel_cost > 0) {
+      lines.push({ description: `Voorrijkosten (${job.travel_distance_km || 0} km)`, quantity: 1, price: job.travel_cost });
+    }
+    if (job && (job.extra_costs || 0) > 0) {
+      lines.push({ description: job.extra_costs_description || "Overige kosten", quantity: 1, price: job.extra_costs || 0 });
+    }
+
+    // Extra sales
+    extraSales.forEach(es => {
+      lines.push({ description: `Bijverkoop: ${es.description}`, quantity: 1, price: Number(es.amount) });
+    });
+
+    // Discount
+    if (job && job.discount_value && job.discount_value > 0) {
+      const itemsTotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+      const subtotal = job.job_type === "ontruiming" ? (job.custom_price || job.advised_price || itemsTotal) : itemsTotal;
+      const discountAmount = job.discount_type === "percentage"
+        ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
+        : job.discount_value;
+      if (discountAmount > 0) {
+        lines.push({ description: `Korting${job.discount_type === "percentage" ? ` (${job.discount_value}%)` : ""}`, quantity: 1, price: -discountAmount });
+      }
+    }
+
+    return lines;
+  };
+
+  const openInvoicePreview = () => {
+    setInvoiceLines(buildInvoiceLines());
+    setShowInvoicePreview(true);
+  };
+
+  const updateInvoiceLine = (index: number, field: "description" | "quantity" | "price", value: string | number) => {
+    setInvoiceLines(prev => prev.map((line, i) => i === index ? { ...line, [field]: value } : line));
+  };
+
+  const removeInvoiceLine = (index: number) => {
+    setInvoiceLines(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addInvoiceLine = () => {
+    setInvoiceLines(prev => [...prev, { description: "", quantity: 1, price: 0 }]);
+  };
+
+  const confirmCreateInvoice = async () => {
+    // We pass the custom lines to a modified wefact action
+    setShowInvoicePreview(false);
+    setWefactLoading("create_invoice");
+    try {
+      const { data, error } = await supabase.functions.invoke("wefact", {
+        body: { action: "create_invoice_custom", job_id: id, lines: invoiceLines },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: `Factuur ${data.invoice_number || ""} aangemaakt in WeFact` });
+      fetchJob();
+    } catch (e: any) {
+      toast({ title: "WeFact fout", description: e.message, variant: "destructive" });
+    }
+    setWefactLoading(null);
+  };
+
   const getRoomNames = (): string[] => {
     const rooms = new Set<string>();
     items.forEach(item => {
@@ -349,7 +478,6 @@ const KlusDetail = () => {
     return Array.from(rooms);
   };
 
-  // Check if all rooms have at least 1 photo
   const allRoomsHavePhotos = (): boolean => {
     const rooms = getRoomNames();
     if (rooms.length === 0) return deliveryPhotos.length > 0;
@@ -366,7 +494,8 @@ const KlusDetail = () => {
   const discount = job.discount_type === "percentage"
     ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
     : job.discount_type === "fixed" ? job.discount_value : 0;
-  const total = subtotal + job.travel_cost + (job.extra_costs || 0) - discount;
+  const extraSalesTotal = extraSales.reduce((s, es) => s + Number(es.amount), 0);
+  const total = subtotal + job.travel_cost + (job.extra_costs || 0) + extraSalesTotal - discount;
   const fullAddress = getFullAddress();
 
   return (
@@ -519,6 +648,141 @@ const KlusDetail = () => {
         );
       })()}
 
+      {/* ═══ DELIVERY SECTION — shown at the top when active ═══ */}
+      {delivery && delivery.status === "concept" && !editing && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <ClipboardCheck className="h-4 w-4 text-primary" /> Oplevering
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-4">
+            {/* Room photo uploads */}
+            {getRoomNames().map(roomName => {
+              const roomDeliveryPhotos = deliveryPhotos.filter(p => p.description === roomName);
+              return (
+                <div key={roomName} className="border rounded-xl p-3 space-y-2 bg-card">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <DoorOpen className="h-3.5 w-3.5 text-primary" /> {roomName}
+                    </p>
+                    <Badge variant={roomDeliveryPhotos.length > 0 ? "default" : "secondary"} className={`text-[10px] px-1.5 py-0 ${roomDeliveryPhotos.length > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}>
+                      {roomDeliveryPhotos.length} foto{roomDeliveryPhotos.length !== 1 ? "'s" : ""}
+                    </Badge>
+                  </div>
+
+                  {roomDeliveryPhotos.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {roomDeliveryPhotos.map(photo => (
+                        <div key={photo.id} className="relative group">
+                          <a href={photo.photo_url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden aspect-square border block hover:opacity-80 transition-opacity">
+                            <img src={photo.photo_url} alt={`${roomName} oplevering`} className="w-full h-full object-cover" />
+                          </a>
+                          <button
+                            onClick={() => deleteDeliveryPhoto(photo.id)}
+                            className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
+                    {uploadingRoom === roomName ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    Foto's uploaden
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => e.target.files && handlePhotoUpload(roomName, e.target.files)}
+                      disabled={uploadingRoom === roomName}
+                    />
+                  </label>
+                </div>
+              );
+            })}
+
+            {/* Extra diensten / werkzaamheden */}
+            <div className="border rounded-xl p-3 space-y-3 bg-card">
+              <p className="text-xs font-semibold flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5 text-primary" /> Extra werkzaamheden / bijverkoop
+              </p>
+
+              {extraSales.length > 0 && (
+                <div className="space-y-2">
+                  {extraSales.map(es => (
+                    <div key={es.id} className="flex items-center gap-2">
+                      <Input
+                        value={es.description}
+                        onChange={(e) => updateExtraSale(es.id, "description", e.target.value)}
+                        onBlur={() => {}} 
+                        className="h-8 text-xs flex-1"
+                        placeholder="Omschrijving"
+                      />
+                      <Input
+                        type="number"
+                        value={es.amount}
+                        onChange={(e) => updateExtraSale(es.id, "amount", Number(e.target.value))}
+                        className="h-8 text-xs w-24"
+                        placeholder="Bedrag"
+                      />
+                      <button onClick={() => deleteExtraSale(es.id)} className="text-destructive hover:text-destructive/80 shrink-0">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newExtraDesc}
+                  onChange={(e) => setNewExtraDesc(e.target.value)}
+                  className="h-8 text-xs flex-1"
+                  placeholder="Bijv. Extra schoonmaak"
+                />
+                <Input
+                  type="number"
+                  value={newExtraAmount}
+                  onChange={(e) => setNewExtraAmount(e.target.value)}
+                  className="h-8 text-xs w-24"
+                  placeholder="€ bedrag"
+                />
+                <Button size="sm" variant="outline" className="h-8 px-2" onClick={addExtraSale} disabled={addingExtra || !newExtraDesc.trim()}>
+                  {addingExtra ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Complete delivery button */}
+            <Button
+              onClick={completeDelivery}
+              disabled={!allRoomsHavePhotos() || completingDelivery}
+              className="w-full gap-1.5"
+            >
+              {completingDelivery ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              Oplevering voltooien
+            </Button>
+            {!allRoomsHavePhotos() && (
+              <p className="text-[11px] text-muted-foreground text-center">
+                Upload minimaal 1 foto per kamer om de oplevering te voltooien
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Info cards */}
       <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
         <Card>
@@ -654,8 +918,8 @@ const KlusDetail = () => {
         </Card>
       )}
 
+      {/* Products/Items grouped by room */}
       {items.length > 0 && (() => {
-        // Group items by room_name
         const roomGroups: Record<string, JobItem[]> = {};
         items.forEach(item => {
           const room = (item as any).room_name || "Overig";
@@ -718,7 +982,6 @@ const KlusDetail = () => {
                   ))}
                 </div>
               )}
-              {/* Show room photos without room grouping */}
               {!hasRooms && roomPhotos.length > 0 && (
                 <div>
                   <p className="text-xs font-medium flex items-center gap-1 mb-1.5"><Camera className="h-3 w-3 text-muted-foreground" /> Foto's</p>
@@ -735,90 +998,6 @@ const KlusDetail = () => {
           </Card>
         );
       })()}
-
-      {/* Delivery Section */}
-      {delivery && delivery.status === "concept" && !editing && (
-        <Card>
-          <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <ClipboardCheck className="h-4 w-4 text-primary" /> Oplevering
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 pt-0 space-y-4">
-            {getRoomNames().map(roomName => {
-              const roomDeliveryPhotos = deliveryPhotos.filter(p => p.description === roomName);
-              return (
-                <div key={roomName} className="border rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold flex items-center gap-1.5">
-                      <DoorOpen className="h-3.5 w-3.5 text-primary" /> {roomName}
-                    </p>
-                    <Badge variant={roomDeliveryPhotos.length > 0 ? "default" : "secondary"} className={`text-[10px] px-1.5 py-0 ${roomDeliveryPhotos.length > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}>
-                      {roomDeliveryPhotos.length} foto{roomDeliveryPhotos.length !== 1 ? "'s" : ""}
-                    </Badge>
-                  </div>
-
-                  {/* Photo thumbnails */}
-                  {roomDeliveryPhotos.length > 0 && (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {roomDeliveryPhotos.map(photo => (
-                        <div key={photo.id} className="relative group">
-                          <a href={photo.photo_url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden aspect-square border block hover:opacity-80 transition-opacity">
-                            <img src={photo.photo_url} alt={`${roomName} oplevering`} className="w-full h-full object-cover" />
-                          </a>
-                          <button
-                            onClick={() => deleteDeliveryPhoto(photo.id)}
-                            className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upload button */}
-                  <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
-                    {uploadingRoom === roomName ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="h-3.5 w-3.5" />
-                    )}
-                    Foto's uploaden
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => e.target.files && handlePhotoUpload(roomName, e.target.files)}
-                      disabled={uploadingRoom === roomName}
-                    />
-                  </label>
-                </div>
-              );
-            })}
-
-            {/* Complete delivery button */}
-            <Button
-              onClick={completeDelivery}
-              disabled={!allRoomsHavePhotos() || completingDelivery}
-              className="w-full gap-1.5"
-            >
-              {completingDelivery ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4" />
-              )}
-              Oplevering voltooien
-            </Button>
-            {!allRoomsHavePhotos() && (
-              <p className="text-[11px] text-muted-foreground text-center">
-                Upload minimaal 1 foto per kamer om de oplevering te voltooien
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Extra costs - editing */}
       {editing && (
@@ -844,7 +1023,6 @@ const KlusDetail = () => {
             <CardTitle className="text-sm">WeFact</CardTitle>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
-            {/* Existing quotes/invoices */}
             {quotes.length > 0 && (
               <div className="space-y-1">
                 {quotes.map((q) => (
@@ -869,7 +1047,6 @@ const KlusDetail = () => {
               </div>
             )}
 
-            {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2">
               {quotes.length === 0 && (
                 <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("create_quote")} disabled={!!wefactLoading}>
@@ -884,7 +1061,7 @@ const KlusDetail = () => {
                 </Button>
               )}
               {invoicesData.length === 0 && (
-                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("create_invoice")} disabled={!!wefactLoading}>
+                <Button size="sm" variant="outline" className="text-xs" onClick={openInvoicePreview} disabled={!!wefactLoading}>
                   {wefactLoading === "create_invoice" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1" />}
                   Factuur aanmaken
                 </Button>
@@ -914,6 +1091,9 @@ const KlusDetail = () => {
             <div className="flex justify-between"><span className="text-muted-foreground">Voorrijkosten ({job.travel_distance_km || 0} km)</span><span>{formatPrice(job.travel_cost)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">{job.job_type === "ontruiming" ? "Ontruiming" : "Producten"}</span><span>{formatPrice(subtotal)}</span></div>
             {(job.extra_costs || 0) > 0 && <div className="flex justify-between"><span className="text-muted-foreground text-xs">Overige kosten{job.extra_costs_description ? ` (${job.extra_costs_description})` : ""}</span><span>{formatPrice(job.extra_costs || 0)}</span></div>}
+            {extraSalesTotal > 0 && (
+              <div className="flex justify-between"><span className="text-muted-foreground text-xs">Extra werkzaamheden ({extraSales.length})</span><span>{formatPrice(extraSalesTotal)}</span></div>
+            )}
             {discount > 0 && <div className="flex justify-between text-destructive"><span>Korting</span><span>-{formatPrice(discount)}</span></div>}
             <div className="flex justify-between font-bold text-base border-t pt-2"><span>Totaal</span><span>{formatPrice(total)}</span></div>
           </div>
@@ -967,6 +1147,60 @@ const KlusDetail = () => {
             <Button onClick={handleSchedule} disabled={schedSaving}>
               {schedSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Inplannen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Preview Dialog */}
+      <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Factuurregels controleren</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Controleer en pas de factuurregels aan voordat de factuur wordt aangemaakt in WeFact.</p>
+            {invoiceLines.map((line, idx) => (
+              <div key={idx} className="flex items-center gap-2 border rounded-lg p-2">
+                <Input
+                  value={line.description}
+                  onChange={(e) => updateInvoiceLine(idx, "description", e.target.value)}
+                  className="h-8 text-xs flex-1"
+                  placeholder="Omschrijving"
+                />
+                <Input
+                  type="number"
+                  value={line.quantity}
+                  onChange={(e) => updateInvoiceLine(idx, "quantity", Number(e.target.value))}
+                  className="h-8 text-xs w-16 text-center"
+                  placeholder="Aantal"
+                />
+                <Input
+                  type="number"
+                  value={line.price}
+                  onChange={(e) => updateInvoiceLine(idx, "price", Number(e.target.value))}
+                  className="h-8 text-xs w-24"
+                  placeholder="Prijs"
+                />
+                <span className="text-xs font-medium w-20 text-right shrink-0">{formatPrice(line.quantity * line.price)}</span>
+                <button onClick={() => removeInvoiceLine(idx)} className="text-destructive hover:text-destructive/80 shrink-0">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={addInvoiceLine}>
+              <Plus className="h-3 w-3" /> Regel toevoegen
+            </Button>
+            <div className="flex justify-between font-bold text-sm border-t pt-3">
+              <span>Totaal</span>
+              <span>{formatPrice(invoiceLines.reduce((s, l) => s + l.quantity * l.price, 0))}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInvoicePreview(false)}>Annuleren</Button>
+            <Button onClick={confirmCreateInvoice} disabled={!!wefactLoading}>
+              {wefactLoading === "create_invoice" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Receipt className="h-4 w-4 mr-1" />}
+              Factuur aanmaken in WeFact
             </Button>
           </DialogFooter>
         </DialogContent>
