@@ -1,119 +1,128 @@
 
 
-# Admin Dashboard – Kringloop Komtgoed
+# Klus Workflow Uitbreiding: Inplannen, Toewijzen, Opleveren, PDF & Agenda
 
-## Overzicht
-Een compleet, overzichtelijk admin dashboard met een licht & clean design. Rustige kleuren, veel witruimte, en een duidelijke sidebar-navigatie. Het dashboard wordt gebouwd met authenticatie en een eigen Supabase-server als backend.
-
----
-
-## 1. Authenticatie & Inlogscherm
-- Modern inlogscherm met bedrijfsnaam "Kringloop Komtgoed"
-- E-mail/wachtwoord login via Supabase Auth
-- Wachtwoord vergeten & reset functionaliteit
-- Beschermde routes: alleen ingelogde gebruikers zien het dashboard
-
-## 2. Layout & Navigatie
-- Zijbalk (sidebar) met alle tabbladen en iconen
-- In te klappen sidebar voor meer werkruimte
-- Alle pagina's bereikbaar onder `/admin/*`
-- Responsive maar primair desktop-gericht
-
-## 3. Dashboard (Startpagina)
-- Overzicht met kernstatistieken: aantal openstaande klussen, aantal klanten, openstaande facturen, omzet
-- Snelle acties: nieuwe klus aanmaken, recente activiteit
-- Grafiekjes met omzet/klussen per maand
-
-## 4. Klanten
-- Overzicht van alle klanten in een tabel (zoeken, filteren)
-- Klantdetailpagina met contactgegevens en gekoppelde klussen
-- Klant toevoegen/bewerken
-
-## 5. Klussen (Aanvragen)
-- Overzicht van alle klussen/aanvragen met statusfilter
-- **+ knop** om handmatig een nieuwe klus/aanvraag aan te maken
-- Later worden hier ook aanvragen vanuit de frontend website getoond
-
-### Workflow nieuwe klus aanmaken (stappen):
-**Stap 1 – Klantgegevens**
-- Bestaande klant selecteren of nieuwe klant aanmaken
-- Adres invullen → voorrijkosten worden automatisch berekend op basis van afstand:
-  - Tot 75 km: €89 incl. BTW
-  - 75-150 km: €115 incl. BTW
-  - Meer dan 150 km: €145 incl. BTW
-
-**Stap 2 – Type opdracht kiezen**
-- **Optie A: Producten** – Producten selecteren uit productcatalogus, prijzen worden overgenomen
-- **Optie B: Ontruiming** – Alle relevante producten selecteren, bedragen worden opgeteld tot een totaal adviesprijs. Admin kan adviesprijs aanpassen naar eigen prijs
-
-**Stap 3 – Kosten & Korting**
-- Overige kosten toevoegen (wordt bij totaal opgeteld)
-- Korting toepassen: percentage óf vast bedrag
-- Totaaloverzicht met voorrijkosten, producten, overige kosten en korting
-
-**Stap 4 – Werkadres & Planning**
-- Werkadres invullen
-- Datum kiezen óf "Direct uitvoeren" aanvinken
-
-**Stap 5 – Offerte versturen**
-- Overzicht van de complete offerte
-- Offerte versturen (voorbereiding voor Snelstart API-koppeling, later te activeren)
-
-**Stap 6 – Klus uitvoeren**
-- Status wijzigen naar "In uitvoering"
-
-**Stap 7 – Oplevering maken**
-- Lijst met alle werkzaamheden uit de offerte
-- Foto's uploaden per werkzaamheid
-- Bedrijfslogo en bedrijfsinformatie worden automatisch toegevoegd
-- PDF-generatie van opleveringsdocument
-
-**Stap 8 – Extra bijverkoop**
-- Extra producten/diensten toevoegen met bedrag
-- Wordt meegenomen op de factuur
-
-**Stap 9 – Factuur versturen**
-- Factuur genereren op basis van offerte + eventuele bijverkoop
-- Voorbereiding voor Snelstart API-koppeling
-
-## 6. Planbord
-- Visuele weekplanning/kalender met ingeplande klussen
-- Drag & drop of klik om klussen in te plannen
-- Overzicht per dag/week
-
-## 7. Opleveringen
-- Overzicht van alle opleveringen
-- Status bijhouden (in concept, afgerond)
-- Opleveringsdocument bekijken als PDF
-
-## 8. Producten
-- Productcatalogus beheren (naam, beschrijving, prijs)
-- Producten toevoegen, bewerken, verwijderen
-- Categorieën voor overzicht
-
-## 9. Financieel
-- Overzicht van alle offertes en facturen
-- Status bijhouden: betaald/onbetaald
-- Voorbereiding voor synchronisatie met Snelstart API (later)
-- Totaaloverzichten en filters op periode
-
-## 10. Gebruikers
-- Medewerkers toevoegen/beheren
-- Rollen toekennen (admin, medewerker) via aparte roltabel in Supabase
-- Medewerker activeren/deactiveren
-
-## 11. Instellingen
-- Wachtwoord wijzigen
-- Voorrijkosten configureren (de 3 tariefzones aanpasbaar)
-- Bedrijfsinformatie & logo instellen (voor op offertes/opleveringen)
+## Samenvatting
+Na het versturen van een offerte ontbreken er nu actieknoppen op de klus-detailpagina. Dit plan voegt vier grote onderdelen toe:
+1. **Workflow-actieknoppen** op de klus-detailpagina (inplannen, medewerker toewijzen)
+2. **Opleveringsproces** met foto-uploads per kamer
+3. **PDF-generatie** van het opleveringsdocument met bedrijfsbranding, permanent opgeslagen in Supabase Storage
+4. **Agenda-integratie** -- toegewezen medewerker tonen op agenda-items
 
 ---
 
-## Database (Supabase)
-Tabellen worden aangemaakt voor: klanten, klussen, producten, offertes, facturen, opleveringen, gebruikersrollen, instellingen. Met Row Level Security (RLS) en authenticatie.
+## 1. Workflow-actieknoppen op KlusDetail
 
-## Wat later komt
-- Frontend website voor klantaanvragen
-- Snelstart API-koppeling (offertes & facturen)
-- Betalingsstatus synchronisatie
+Op de klus-detailpagina komen contextafhankelijke actieknoppen, afhankelijk van de huidige status:
+
+| Status | Actie | Wat er gebeurt |
+|--------|-------|----------------|
+| `offerte_verstuurd` | **Inplannen** | Opent formulier voor datum, tijd en medewerker. Slaat op en zet status naar `in_uitvoering`. |
+| `in_uitvoering` | **Oplevering starten** | Maakt een `delivery` record aan (status "concept"), zet jobstatus naar `oplevering`. |
+| `oplevering` | Opleveringssectie zichtbaar | Foto-upload per kamer + knop "Oplevering voltooien". |
+
+### Inplan-formulier
+- Datumpicker (bestaande Calendar component)
+- Tijdveld (tekst input)
+- Medewerker-dropdown (uit profiles tabel)
+- Opslaan knop die `scheduled_date`, `scheduled_time` en `assigned_to` op de job updatet
+
+---
+
+## 2. Opleveringsproces
+
+### Hoe het werkt
+- Per kamer (afgeleid uit de `job_items` groepering op `room_name`) moet minimaal 1 foto worden geupload.
+- Foto's worden geupload naar de bestaande `delivery-photos` storage bucket.
+- Referenties worden opgeslagen in de `delivery_photos` tabel.
+- Zolang niet alle kamers een foto hebben, is de knop "Oplevering voltooien" uitgeschakeld.
+- Bij voltooien: PDF wordt gegenereerd, delivery status wordt `afgerond`, job status wordt `gefactureerd`.
+
+### UI op de klus-detailpagina
+Een nieuwe Card "Oplevering" verschijnt wanneer een delivery record bestaat:
+- Per kamer een sectie met kamernaam als header
+- Upload-knop voor foto's per kamer
+- Thumbnail-preview van geuploadde foto's met verwijder-optie
+- Onderaan: knop "Oplevering voltooien" (disabled totdat elke kamer minimaal 1 foto heeft)
+- Na voltooiing: knop "PDF downloaden" om het opgeslagen document te openen
+
+---
+
+## 3. PDF-generatie (Edge Function)
+
+Een nieuwe Edge Function `generate-delivery-pdf` genereert het opleveringsdocument.
+
+### PDF Structuur
+
+**Pagina 1: Overzicht**
+- Bedrijfslogo en bedrijfsgegevens (uit `settings` tabel, key `company_info`)
+- Klantgegevens (naam, adres, contactgegevens)
+- Klusnaam en uitvoeringsdatum
+- Per kamer: lijst van uitgevoerde werkzaamheden (alleen beschrijvingen, geen prijzen)
+
+**Volgende pagina's: Foto's**
+- 1 foto per pagina
+- Kamernaam als bijschrift bovenaan elke pagina
+- Foto groot gecentreerd op de pagina
+
+### Opslag
+- PDF wordt geupload naar een nieuwe storage bucket `delivery-pdfs` (public)
+- De publieke URL wordt opgeslagen in het nieuwe `pdf_url` veld op de `deliveries` tabel
+- De PDF blijft permanent beschikbaar en kan altijd worden bekeken of gedownload
+
+---
+
+## 4. Agenda-integratie
+
+De agenda toont nu al klussen met een ingeplande datum. De uitbreiding:
+- Bij het opbouwen van agenda-items worden de `profiles` opgehaald
+- De naam van de toegewezen medewerker wordt getoond op de agenda-kaart (onder de klantnaam)
+- Zichtbaar als een klein label, bijv. "Medewerker: Jan de Vries"
+
+---
+
+## 5. Opleveringen overzichtspagina
+
+De bestaande Opleveringen pagina wordt uitgebreid:
+- Rijen zijn klikbaar en navigeren naar de klus-detailpagina
+- Bij afgeronde opleveringen verschijnt een PDF download-knop
+
+---
+
+## Technische Details
+
+### Database wijzigingen
+1. **`deliveries` tabel**: nieuw veld `pdf_url` (text, nullable)
+2. **Nieuwe storage bucket**: `delivery-pdfs` (public) -- aangemaakt via SQL migratie
+
+### Nieuwe Edge Function: `generate-delivery-pdf`
+- Ontvangt `delivery_id` als parameter
+- Gebruikt Supabase service role key om data op te halen
+- Haalt op: delivery, job, klant, job_items (gegroepeerd per room_name), delivery_photos, company_info setting
+- Genereert PDF met `jsPDF` library (beschikbaar via CDN import in Deno)
+- Laadt bedrijfslogo als base64 vanuit `company-assets` bucket (indien aanwezig)
+- Uploadt PDF naar `delivery-pdfs` bucket
+- Slaat `pdf_url` op in delivery record
+- Retourneert de publieke URL
+- Config: `verify_jwt = false` in `supabase/config.toml`
+
+### Bestanden die worden aangepast
+
+| Bestand | Wijziging |
+|---------|-----------|
+| `src/pages/admin/KlusDetail.tsx` | Workflow-actieknoppen, inplan-formulier, opleveringssectie met foto-uploads en PDF download |
+| `src/pages/admin/Agenda.tsx` | Profiles ophalen, medewerker-naam tonen op agenda-items |
+| `src/pages/admin/Opleveringen.tsx` | Klikbaar naar klus, PDF download-knop |
+| `src/types/database.ts` | `pdf_url` veld toevoegen aan Delivery type |
+| `supabase/functions/generate-delivery-pdf/index.ts` | Nieuwe edge function (nieuw bestand) |
+| `supabase/config.toml` | Config voor nieuwe edge function |
+| Database migratie | `pdf_url` kolom + `delivery-pdfs` bucket |
+
+### Volgorde van implementatie
+1. Database migratie (kolom + bucket)
+2. Type-update in `database.ts`
+3. Edge function `generate-delivery-pdf`
+4. KlusDetail uitbreiden (workflow knoppen, inplannen, oplevering)
+5. Agenda uitbreiden (medewerker tonen)
+6. Opleveringen pagina uitbreiden
 
