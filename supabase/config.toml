@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generate-delivery-pdf]
 verify_jwt = false
+
+[functions.sync-wefact-statuses]
+verify_jwt = false
