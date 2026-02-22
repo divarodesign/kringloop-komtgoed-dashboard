@@ -98,6 +98,7 @@ const NieuweKlus = () => {
   const [discountValue, setDiscountValue] = useState("");
   const [extraCosts, setExtraCosts] = useState("");
   const [extraCostsDesc, setExtraCostsDesc] = useState("");
+  const [surchargePercentage, setSurchargePercentage] = useState(0);
   const [workAddress, setWorkAddress] = useState("");
   const [workCity, setWorkCity] = useState("");
   const [workPostalCode, setWorkPostalCode] = useState("");
@@ -275,7 +276,9 @@ const NieuweKlus = () => {
   const discount = discountType === "percentage"
     ? (subtotal + travelCost + extra) * ((parseFloat(discountValue) || 0) / 100)
     : discountType === "fixed" ? (parseFloat(discountValue) || 0) : 0;
-  const total = subtotal + travelCost + extra - discount;
+  const beforeSurcharge = subtotal + travelCost + extra - discount;
+  const surchargeAmount = beforeSurcharge * (surchargePercentage / 100);
+  const total = beforeSurcharge + surchargeAmount;
 
   const handleSubmit = async () => {
     let cid = customerId;
@@ -289,6 +292,7 @@ const NieuweKlus = () => {
       travel_cost: travelCost, travel_distance_km: parseInt(travelKm) || null,
       discount_type: discountType || null, discount_value: parseFloat(discountValue) || 0,
       extra_costs: extra, extra_costs_description: extraCostsDesc || null,
+      surcharge_percentage: surchargePercentage,
       advised_price: jobType === "ontruiming" ? advisedPrice : null,
       custom_price: jobType === "ontruiming" && customPrice ? parseFloat(customPrice) : null,
       work_address: workAddress || null, work_city: workCity || null, work_postal_code: workPostalCode || null,
@@ -873,11 +877,25 @@ const NieuweKlus = () => {
                 </div>
               )}
             </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Toeslag percentage</Label>
+              <Select value={String(surchargePercentage)} onValueChange={(v) => setSurchargePercentage(parseInt(v))}>
+                <SelectTrigger className="text-xs"><SelectValue placeholder="Geen" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Geen</SelectItem>
+                  <SelectItem value="5">5%</SelectItem>
+                  <SelectItem value="10">10%</SelectItem>
+                  <SelectItem value="15">15%</SelectItem>
+                  <SelectItem value="20">20%</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="border-t pt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-xs text-muted-foreground">Voorrijkosten</span><span className="text-xs">{formatPrice(travelCost)}</span></div>
               <div className="flex justify-between"><span className="text-xs text-muted-foreground">{jobType === "ontruiming" ? "Ontruiming" : "Producten"}</span><span className="text-xs">{formatPrice(subtotal)}</span></div>
               {extra > 0 && <div className="flex justify-between"><span className="text-xs text-muted-foreground">Overig</span><span className="text-xs">{formatPrice(extra)}</span></div>}
               {discount > 0 && <div className="flex justify-between text-destructive"><span className="text-xs">Korting</span><span className="text-xs">-{formatPrice(discount)}</span></div>}
+              {surchargePercentage > 0 && <div className="flex justify-between text-green-600"><span className="text-xs">Toeslag ({surchargePercentage}%)</span><span className="text-xs">+{formatPrice(surchargeAmount)}</span></div>}
               <div className="flex justify-between font-bold border-t pt-2"><span>Totaal</span><span>{formatPrice(total)}</span></div>
             </div>
           </CardContent>

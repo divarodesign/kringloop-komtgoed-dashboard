@@ -53,6 +53,7 @@ export interface Job {
   extra_costs_description: string | null;
   advised_price: number | null;
   custom_price: number | null;
+  surcharge_percentage: number;
   scheduled_date: string | null;
   scheduled_end_date: string | null;
   scheduled_time: string | null;

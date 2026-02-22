@@ -205,10 +205,17 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Apply surcharge for non-ontruiming (silently increase all line prices)
+      if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
+        const factor = 1 + (job.surcharge_percentage / 100);
+        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
+      }
+
       // For ontruiming: show all items at €0, remove travel/extra cost lines, add single total
       if (job.job_type === "ontruiming") {
         const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-        const totalPrice = job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0));
+        const surcharge = job.surcharge_percentage || 0;
+        const totalPrice = (job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0))) * (1 + surcharge / 100);
         
         // Remove travel cost and extra cost lines (keep only product lines)
         const productLinesOnly = lines.filter((line: any) => 
@@ -307,10 +314,17 @@ Deno.serve(async (req) => {
         lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceExcl: job.extra_costs });
       }
 
+      // Apply surcharge for non-ontruiming (silently increase all line prices)
+      if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
+        const factor = 1 + (job.surcharge_percentage / 100);
+        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
+      }
+
       // For ontruiming: show all items at €0, remove travel/extra cost lines, add single total
       if (job.job_type === "ontruiming") {
         const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-        const totalPrice = job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0));
+        const surcharge = job.surcharge_percentage || 0;
+        const totalPrice = (job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0))) * (1 + surcharge / 100);
         
         const productLinesOnly = lines.filter((line: any) => 
           !line.Description.startsWith("Voorrijkosten") && 
