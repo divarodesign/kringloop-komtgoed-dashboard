@@ -54,6 +54,7 @@ export interface Job {
   advised_price: number | null;
   custom_price: number | null;
   scheduled_date: string | null;
+  scheduled_end_date: string | null;
   scheduled_time: string | null;
   is_direct: boolean;
   assigned_to: string | null;

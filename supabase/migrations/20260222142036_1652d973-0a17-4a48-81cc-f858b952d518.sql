@@ -1,0 +1,1 @@
+ALTER TABLE public.jobs ADD COLUMN scheduled_end_date date;
