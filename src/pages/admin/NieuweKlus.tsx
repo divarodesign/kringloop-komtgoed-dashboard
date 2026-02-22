@@ -113,6 +113,7 @@ const NieuweKlus = () => {
   const [housingType, setHousingType] = useState("");
   const [conceptJobId, setConceptJobId] = useState<string | null>(null);
   const [savingConcept, setSavingConcept] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Category-product links
   const [categoryLinks, setCategoryLinks] = useState<{ product_id: string; category_id: string }[]>([]);
@@ -393,6 +394,9 @@ const NieuweKlus = () => {
   const total = beforeSurcharge + surchargeAmount;
 
   const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
     let cid = customerId;
     if (newCustomer) {
       const { data, error } = await supabase.from("customers").insert(customerForm).select().single();
@@ -480,6 +484,9 @@ const NieuweKlus = () => {
       toast({ title: "Klus aangemaakt!" });
     }
     navigate("/admin/klussen");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) return <p className="text-center py-12 text-muted-foreground">Laden...</p>;
@@ -1185,8 +1192,9 @@ const NieuweKlus = () => {
             {step < STEPS.length - 1 ? (
               <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
             ) : (
-              <Button size="sm" onClick={handleSubmit}>
-                <Check className="mr-1.5 h-4 w-4" /> {isQuoteRequest ? "Offerte versturen" : "Aanmaken"}
+              <Button size="sm" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
+                {submitting ? "Bezig..." : isQuoteRequest ? "Offerte versturen" : "Aanmaken"}
               </Button>
             )}
           </div>
