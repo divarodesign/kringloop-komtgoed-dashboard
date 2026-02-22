@@ -163,11 +163,11 @@ Deno.serve(async (req) => {
         for (let ri = 0; ri < roomNames.length; ri++) {
           const roomName = roomNames[ri];
           if (ri > 0) {
-            lines.push({ Description: " ", Number: 0, PriceExcl: 0 });
+            lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
           }
           lines.push({
             Description: `=== ${roomName.toUpperCase()} ===`,
-            Number: 0,
+            Number: 1,
             PriceExcl: 0,
           });
           for (const item of roomGroups[roomName]) {
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
         // Zero out prices, keep quantities in Number field
         lines.forEach((line: any) => { line.PriceExcl = 0; });
         
-        lines.push({ Description: " ", Number: 0, PriceExcl: 0 });
+        lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
         lines.push({ Description: "Totaalprijs project", Number: 1, PriceExcl: toExcl(totalPriceIncl) });
       }
 
