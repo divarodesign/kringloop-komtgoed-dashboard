@@ -104,6 +104,7 @@ export type Database = {
           id: string
           job_id: string
           notes: string | null
+          pdf_url: string | null
           status: string
           updated_at: string
         }
@@ -113,6 +114,7 @@ export type Database = {
           id?: string
           job_id: string
           notes?: string | null
+          pdf_url?: string | null
           status?: string
           updated_at?: string
         }
@@ -122,6 +124,7 @@ export type Database = {
           id?: string
           job_id?: string
           notes?: string | null
+          pdf_url?: string | null
           status?: string
           updated_at?: string
         }

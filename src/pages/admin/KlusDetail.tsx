@@ -11,13 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera, FileText, Receipt, Send, CheckCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, Save, X, Search, Loader2, Phone, Navigation, Trash2, DoorOpen, Camera, FileText, Receipt, Send, CheckCircle, ClipboardCheck, Upload, Download } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import type { Job, JobItem, Profile } from "@/types/database";
+import type { Job, JobItem, Profile, Delivery, DeliveryPhoto } from "@/types/database";
 
 const statusLabels: Record<string, string> = {
   nieuw: "Nieuw", offerte_verstuurd: "Offerte verstuurd", in_uitvoering: "In uitvoering",
@@ -39,6 +40,19 @@ const KlusDetail = () => {
   const [quotes, setQuotes] = useState<any[]>([]);
   const [invoicesData, setInvoicesData] = useState<any[]>([]);
 
+  // Workflow state
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [schedDate, setSchedDate] = useState<Date | undefined>();
+  const [schedTime, setSchedTime] = useState("");
+  const [schedAssignee, setSchedAssignee] = useState("");
+  const [schedSaving, setSchedSaving] = useState(false);
+
+  // Delivery state
+  const [delivery, setDelivery] = useState<Delivery | null>(null);
+  const [deliveryPhotos, setDeliveryPhotos] = useState<DeliveryPhoto[]>([]);
+  const [uploadingRoom, setUploadingRoom] = useState<string | null>(null);
+  const [completingDelivery, setCompletingDelivery] = useState(false);
+
   // Edit form state
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -56,13 +70,14 @@ const KlusDetail = () => {
   const [lookingUp, setLookingUp] = useState(false);
 
   const fetchJob = async () => {
-    const [{ data: j }, { data: ji }, { data: p }, { data: rp }, { data: q }, { data: inv }] = await Promise.all([
+    const [{ data: j }, { data: ji }, { data: p }, { data: rp }, { data: q }, { data: inv }, { data: del }] = await Promise.all([
       supabase.from("jobs").select("*, customers(*)").eq("id", id!).single(),
       supabase.from("job_items").select("*, products(*)").eq("job_id", id!),
       supabase.from("profiles").select("*").eq("is_active", true),
       supabase.from("job_room_photos").select("*").eq("job_id", id!),
       supabase.from("quotes").select("*").eq("job_id", id!).order("created_at", { ascending: false }),
       supabase.from("invoices").select("*").eq("job_id", id!).order("created_at", { ascending: false }),
+      supabase.from("deliveries").select("*").eq("job_id", id!).order("created_at", { ascending: false }).limit(1),
     ]);
     setJob(j as Job);
     setItems((ji as JobItem[]) || []);
@@ -70,6 +85,22 @@ const KlusDetail = () => {
     setProfiles((p as Profile[]) || []);
     setQuotes(q || []);
     setInvoicesData(inv || []);
+
+    const deliveryRecord = del && del.length > 0 ? (del[0] as Delivery) : null;
+    setDelivery(deliveryRecord);
+
+    // Fetch delivery photos if delivery exists
+    if (deliveryRecord) {
+      const { data: dp } = await supabase
+        .from("delivery_photos")
+        .select("*")
+        .eq("delivery_id", deliveryRecord.id)
+        .order("created_at");
+      setDeliveryPhotos((dp as DeliveryPhoto[]) || []);
+    } else {
+      setDeliveryPhotos([]);
+    }
+
     setLoading(false);
   };
 
@@ -124,7 +155,6 @@ const KlusDetail = () => {
   };
 
   const deleteJob = async () => {
-    // Delete related records first, then the job
     await supabase.from("job_items").delete().eq("job_id", id!);
     await supabase.from("extra_sales").delete().eq("job_id", id!);
     const { error } = await supabase.from("jobs").delete().eq("id", id!);
@@ -136,7 +166,6 @@ const KlusDetail = () => {
     }
   };
 
-  // Auto address lookup when postcode and huisnummer are filled
   const lookupAddress = useCallback(async (postcode: string, nr: string) => {
     if (!postcode || postcode.replace(/\s/g, "").length < 6 || !nr) return;
     setLookingUp(true);
@@ -157,7 +186,6 @@ const KlusDetail = () => {
     setLookingUp(false);
   }, [toast]);
 
-  // Auto-trigger lookup
   useEffect(() => {
     if (!editing) return;
     const cleanPostcode = editPostalCode.replace(/\s/g, "");
@@ -200,6 +228,129 @@ const KlusDetail = () => {
 
   const getFullAddress = () => {
     return [job?.work_address, job?.work_postal_code, job?.work_city].filter(Boolean).join(", ");
+  };
+
+  // ─── WORKFLOW ACTIONS ───
+  const handleSchedule = async () => {
+    if (!schedDate) {
+      toast({ title: "Kies een datum", variant: "destructive" });
+      return;
+    }
+    setSchedSaving(true);
+    const { error } = await supabase.from("jobs").update({
+      scheduled_date: format(schedDate, "yyyy-MM-dd"),
+      scheduled_time: schedTime || null,
+      assigned_to: schedAssignee || null,
+      status: "in_uitvoering",
+    }).eq("id", id!);
+    setSchedSaving(false);
+    if (error) {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Klus ingepland en status bijgewerkt" });
+      setShowScheduleDialog(false);
+      fetchJob();
+    }
+  };
+
+  const startDelivery = async () => {
+    const { data, error } = await supabase.from("deliveries").insert({
+      job_id: id!,
+      status: "concept",
+    }).select().single();
+    if (error) {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+      return;
+    }
+    await supabase.from("jobs").update({ status: "oplevering" }).eq("id", id!);
+    toast({ title: "Oplevering gestart" });
+    fetchJob();
+  };
+
+  const handlePhotoUpload = async (roomName: string, files: FileList) => {
+    if (!delivery || files.length === 0) return;
+    setUploadingRoom(roomName);
+
+    // Find a job_item_id for this room
+    const roomItem = items.find(i => (i as any).room_name === roomName || (!( i as any).room_name && roomName === "Overig"));
+
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `${delivery.id}/${roomName}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("delivery-photos")
+        .upload(filePath, file, { contentType: file.type });
+
+      if (uploadErr) {
+        toast({ title: "Upload fout", description: uploadErr.message, variant: "destructive" });
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("delivery-photos")
+        .getPublicUrl(filePath);
+
+      await supabase.from("delivery_photos").insert({
+        delivery_id: delivery.id,
+        job_item_id: roomItem?.id || null,
+        photo_url: urlData.publicUrl,
+        description: roomName,
+      });
+    }
+
+    // Refresh photos
+    const { data: dp } = await supabase
+      .from("delivery_photos")
+      .select("*")
+      .eq("delivery_id", delivery.id)
+      .order("created_at");
+    setDeliveryPhotos((dp as DeliveryPhoto[]) || []);
+    setUploadingRoom(null);
+  };
+
+  const deleteDeliveryPhoto = async (photoId: string) => {
+    await supabase.from("delivery_photos").delete().eq("id", photoId);
+    setDeliveryPhotos(prev => prev.filter(p => p.id !== photoId));
+  };
+
+  const completeDelivery = async () => {
+    if (!delivery) return;
+    setCompletingDelivery(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-delivery-pdf", {
+        body: { delivery_id: delivery.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Update job status
+      await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", id!);
+
+      toast({ title: "Oplevering voltooid! PDF is gegenereerd." });
+      fetchJob();
+    } catch (e: any) {
+      toast({ title: "Fout bij voltooien", description: e.message, variant: "destructive" });
+    }
+    setCompletingDelivery(false);
+  };
+
+  // Get room names from items
+  const getRoomNames = (): string[] => {
+    const rooms = new Set<string>();
+    items.forEach(item => {
+      rooms.add((item as any).room_name || "Overig");
+    });
+    return Array.from(rooms);
+  };
+
+  // Check if all rooms have at least 1 photo
+  const allRoomsHavePhotos = (): boolean => {
+    const rooms = getRoomNames();
+    if (rooms.length === 0) return deliveryPhotos.length > 0;
+    return rooms.every(room =>
+      deliveryPhotos.some(p => p.description === room)
+    );
   };
 
   if (loading) return <p className="text-center py-12 text-muted-foreground">Laden...</p>;
@@ -309,6 +460,34 @@ const KlusDetail = () => {
         </div>
       )}
 
+      {/* Workflow Action Buttons */}
+      {!editing && (
+        <div className="flex flex-wrap gap-2">
+          {job.status === "offerte_verstuurd" && (
+            <Button onClick={() => {
+              setSchedDate(job.scheduled_date ? new Date(job.scheduled_date) : undefined);
+              setSchedTime(job.scheduled_time || "");
+              setSchedAssignee(job.assigned_to || "");
+              setShowScheduleDialog(true);
+            }} className="gap-1.5">
+              <CalendarIcon className="h-4 w-4" /> Inplannen
+            </Button>
+          )}
+          {job.status === "in_uitvoering" && !delivery && (
+            <Button onClick={startDelivery} className="gap-1.5">
+              <ClipboardCheck className="h-4 w-4" /> Oplevering starten
+            </Button>
+          )}
+          {delivery && delivery.status === "afgerond" && delivery.pdf_url && (
+            <Button variant="outline" asChild className="gap-1.5">
+              <a href={delivery.pdf_url} target="_blank" rel="noopener noreferrer">
+                <Download className="h-4 w-4" /> PDF downloaden
+              </a>
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Status selector */}
       <Select value={job.status} onValueChange={updateStatus}>
         <SelectTrigger className="w-full sm:w-48">
@@ -377,6 +556,11 @@ const KlusDetail = () => {
                     {job.is_direct ? "Direct uitvoeren" : job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString("nl-NL") : "Niet gepland"}
                   </span>
                 </div>
+                {job.scheduled_time && (
+                  <div className="flex items-center gap-2 ml-5">
+                    <span className="text-xs text-muted-foreground">{job.scheduled_time}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs">
@@ -524,6 +708,90 @@ const KlusDetail = () => {
         );
       })()}
 
+      {/* Delivery Section */}
+      {delivery && delivery.status === "concept" && !editing && (
+        <Card>
+          <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <ClipboardCheck className="h-4 w-4 text-primary" /> Oplevering
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-0 space-y-4">
+            {getRoomNames().map(roomName => {
+              const roomDeliveryPhotos = deliveryPhotos.filter(p => p.description === roomName);
+              return (
+                <div key={roomName} className="border rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <DoorOpen className="h-3.5 w-3.5 text-primary" /> {roomName}
+                    </p>
+                    <Badge variant={roomDeliveryPhotos.length > 0 ? "default" : "secondary"} className={`text-[10px] px-1.5 py-0 ${roomDeliveryPhotos.length > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}>
+                      {roomDeliveryPhotos.length} foto{roomDeliveryPhotos.length !== 1 ? "'s" : ""}
+                    </Badge>
+                  </div>
+
+                  {/* Photo thumbnails */}
+                  {roomDeliveryPhotos.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {roomDeliveryPhotos.map(photo => (
+                        <div key={photo.id} className="relative group">
+                          <a href={photo.photo_url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden aspect-square border block hover:opacity-80 transition-opacity">
+                            <img src={photo.photo_url} alt={`${roomName} oplevering`} className="w-full h-full object-cover" />
+                          </a>
+                          <button
+                            onClick={() => deleteDeliveryPhoto(photo.id)}
+                            className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload button */}
+                  <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
+                    {uploadingRoom === roomName ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    Foto's uploaden
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => e.target.files && handlePhotoUpload(roomName, e.target.files)}
+                      disabled={uploadingRoom === roomName}
+                    />
+                  </label>
+                </div>
+              );
+            })}
+
+            {/* Complete delivery button */}
+            <Button
+              onClick={completeDelivery}
+              disabled={!allRoomsHavePhotos() || completingDelivery}
+              className="w-full gap-1.5"
+            >
+              {completingDelivery ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              Oplevering voltooien
+            </Button>
+            {!allRoomsHavePhotos() && (
+              <p className="text-[11px] text-muted-foreground text-center">
+                Upload minimaal 1 foto per kamer om de oplevering te voltooien
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Extra costs - editing */}
       {editing && (
         <Card>
@@ -623,6 +891,56 @@ const KlusDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Schedule Dialog */}
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Klus inplannen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Datum *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left text-sm font-normal", !schedDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {schedDate ? format(schedDate, "d MMMM yyyy", { locale: nl }) : "Kies een datum"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={schedDate} onSelect={setSchedDate} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tijd</Label>
+              <Input type="time" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Medewerker</Label>
+              <Select value={schedAssignee} onValueChange={setSchedAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Kies medewerker" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Geen</SelectItem>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.user_id} value={p.user_id}>{p.full_name || p.email || "Onbekend"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Annuleren</Button>
+            <Button onClick={handleSchedule} disabled={schedSaving}>
+              {schedSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Inplannen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
