@@ -1006,16 +1006,20 @@ const NieuweKlus = () => {
             </div>
             <div className="grid gap-1.5">
               <Label className="text-xs">Toeslag percentage</Label>
-              <Select value={String(surchargePercentage)} onValueChange={(v) => setSurchargePercentage(parseInt(v))}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Geen" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Geen</SelectItem>
-                  <SelectItem value="5">5%</SelectItem>
-                  <SelectItem value="10">10%</SelectItem>
-                  <SelectItem value="15">15%</SelectItem>
-                  <SelectItem value="20">20%</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                {[5, 10, 15, 20].map((pct) => (
+                  <Button
+                    key={pct}
+                    type="button"
+                    size="sm"
+                    variant={surchargePercentage === pct ? "default" : "outline"}
+                    className="flex-1 text-xs"
+                    onClick={() => setSurchargePercentage(surchargePercentage === pct ? 0 : pct)}
+                  >
+                    {pct}%
+                  </Button>
+                ))}
+              </div>
             </div>
             <div className="border-t pt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-xs text-muted-foreground">Voorrijkosten</span><span className="text-xs">{formatPrice(travelCost)}</span></div>
