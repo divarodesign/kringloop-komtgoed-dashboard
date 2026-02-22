@@ -43,7 +43,7 @@ const Dashboard = () => {
   const quickActions = [
     { label: "Nieuwe klus", icon: Plus, path: "/admin/klussen/nieuw", bg: "bg-primary", textColor: "text-primary-foreground" },
     { label: "Klussen", icon: Briefcase, path: "/admin/klussen", bg: "bg-card", textColor: "text-foreground" },
-    { label: "Planbord", icon: Calendar, path: "/admin/planbord", bg: "bg-card", textColor: "text-foreground" },
+    { label: "Agenda", icon: Calendar, path: "/admin/agenda", bg: "bg-card", textColor: "text-foreground" },
     { label: "Opleveringen", icon: ClipboardCheck, path: "/admin/opleveringen", bg: "bg-card", textColor: "text-foreground" },
     { label: "Producten", icon: Package, path: "/admin/producten", bg: "bg-card", textColor: "text-foreground" },
     { label: "Klanten", icon: Users, path: "/admin/klanten", bg: "bg-card", textColor: "text-foreground" },
