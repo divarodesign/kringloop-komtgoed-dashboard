@@ -79,7 +79,7 @@ const NieuweKlus = () => {
   const [customerForm, setCustomerForm] = useState({ name: "", email: "", phone: "", address: "", city: "", postal_code: "" });
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [jobType, setJobType] = useState<"producten" | "ontruiming">("producten");
+  const [jobType, setJobType] = useState<"producten" | "ontruiming">("ontruiming");
   // selectedProducts is derived from rooms (flattened) for backward compat
   const selectedProducts = useMemo(() => rooms.flatMap(r => r.products), [rooms]);
   const setSelectedProducts = (updater: SelectedProduct[] | ((prev: SelectedProduct[]) => SelectedProduct[])) => {
@@ -569,13 +569,13 @@ const NieuweKlus = () => {
           </CardHeader>
           <CardContent className="p-4 sm:p-6 pt-2 space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setJobType("producten")} className={`rounded-xl border-2 p-4 text-left transition-all touch-manipulation active:scale-[0.97] ${jobType === "producten" ? "border-primary bg-primary/5" : "border-border"}`}>
-                <p className="text-sm font-semibold">Producten</p>
-                <p className="text-xs text-muted-foreground mt-1">Selecteer producten uit de catalogus</p>
-              </button>
               <button onClick={() => setJobType("ontruiming")} className={`rounded-xl border-2 p-4 text-left transition-all touch-manipulation active:scale-[0.97] ${jobType === "ontruiming" ? "border-primary bg-primary/5" : "border-border"}`}>
                 <p className="text-sm font-semibold">Ontruiming</p>
                 <p className="text-xs text-muted-foreground mt-1">Selecteer producten, stel adviesprijs samen</p>
+              </button>
+              <button onClick={() => setJobType("producten")} className={`rounded-xl border-2 p-4 text-left transition-all touch-manipulation active:scale-[0.97] ${jobType === "producten" ? "border-primary bg-primary/5" : "border-border"}`}>
+                <p className="text-sm font-semibold">Producten</p>
+                <p className="text-xs text-muted-foreground mt-1">Selecteer producten uit de catalogus</p>
               </button>
             </div>
 
