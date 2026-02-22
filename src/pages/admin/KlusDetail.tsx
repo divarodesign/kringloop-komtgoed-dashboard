@@ -15,8 +15,9 @@ import { ArrowLeft, MapPin, Calendar as CalendarIcon, User, Briefcase, Pencil, S
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, eachDayOfInterval } from "date-fns";
 import { nl } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import type { Job, JobItem, Profile, Delivery, DeliveryPhoto } from "@/types/database";
 
@@ -42,7 +43,7 @@ const KlusDetail = () => {
 
   // Workflow state
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
-  const [schedDate, setSchedDate] = useState<Date | undefined>();
+  const [schedRange, setSchedRange] = useState<DateRange | undefined>();
   const [schedTime, setSchedTime] = useState("");
   const [schedAssignee, setSchedAssignee] = useState("");
   const [schedSaving, setSchedSaving] = useState(false);
@@ -232,13 +233,16 @@ const KlusDetail = () => {
 
   // ─── WORKFLOW ACTIONS ───
   const handleSchedule = async () => {
-    if (!schedDate) {
-      toast({ title: "Kies een datum", variant: "destructive" });
+    if (!schedRange?.from) {
+      toast({ title: "Kies minimaal één datum", variant: "destructive" });
       return;
     }
     setSchedSaving(true);
+    const startDate = format(schedRange.from, "yyyy-MM-dd");
+    const endDate = schedRange.to ? format(schedRange.to, "yyyy-MM-dd") : null;
     const { error } = await supabase.from("jobs").update({
-      scheduled_date: format(schedDate, "yyyy-MM-dd"),
+      scheduled_date: startDate,
+      scheduled_end_date: endDate,
       scheduled_time: schedTime || null,
       assigned_to: schedAssignee || null,
       status: "in_uitvoering",
@@ -465,7 +469,9 @@ const KlusDetail = () => {
         <div className="flex flex-wrap gap-2">
           {job.status === "offerte_verstuurd" && (
             <Button onClick={() => {
-              setSchedDate(job.scheduled_date ? new Date(job.scheduled_date) : undefined);
+              const from = job.scheduled_date ? new Date(job.scheduled_date) : undefined;
+              const to = (job as any).scheduled_end_date ? new Date((job as any).scheduled_end_date) : undefined;
+              setSchedRange(from ? { from, to } : undefined);
               setSchedTime(job.scheduled_time || "");
               setSchedAssignee(job.assigned_to || "");
               setShowScheduleDialog(true);
@@ -553,7 +559,14 @@ const KlusDetail = () => {
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs">
-                    {job.is_direct ? "Direct uitvoeren" : job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString("nl-NL") : "Niet gepland"}
+                    {job.is_direct ? "Direct uitvoeren" : job.scheduled_date ? (
+                      <>
+                        {new Date(job.scheduled_date).toLocaleDateString("nl-NL")}
+                        {(job as any).scheduled_end_date && (job as any).scheduled_end_date !== job.scheduled_date && (
+                          <> — {new Date((job as any).scheduled_end_date).toLocaleDateString("nl-NL")}</>
+                        )}
+                      </>
+                    ) : "Niet gepland"}
                   </span>
                 </div>
                 {job.scheduled_time && (
@@ -900,18 +913,20 @@ const KlusDetail = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Datum *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left text-sm font-normal", !schedDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {schedDate ? format(schedDate, "d MMMM yyyy", { locale: nl }) : "Kies een datum"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={schedDate} onSelect={setSchedDate} initialFocus className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+              <Label className="text-xs">Datum(s) * — selecteer startdatum, klik daarna einddatum voor meerdere dagen</Label>
+              <Calendar
+                mode="range"
+                selected={schedRange}
+                onSelect={setSchedRange}
+                numberOfMonths={1}
+                className={cn("p-3 pointer-events-auto rounded-md border")}
+              />
+              {schedRange?.from && (
+                <p className="text-xs text-muted-foreground">
+                  {format(schedRange.from, "d MMM yyyy", { locale: nl })}
+                  {schedRange.to && schedRange.to.getTime() !== schedRange.from.getTime() && ` — ${format(schedRange.to, "d MMM yyyy", { locale: nl })}`}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tijd</Label>

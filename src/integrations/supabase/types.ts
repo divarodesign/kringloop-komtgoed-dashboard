@@ -353,6 +353,7 @@ export type Database = {
           is_direct: boolean
           job_type: string
           scheduled_date: string | null
+          scheduled_end_date: string | null
           scheduled_time: string | null
           status: string
           title: string
@@ -379,6 +380,7 @@ export type Database = {
           is_direct?: boolean
           job_type?: string
           scheduled_date?: string | null
+          scheduled_end_date?: string | null
           scheduled_time?: string | null
           status?: string
           title: string
@@ -405,6 +407,7 @@ export type Database = {
           is_direct?: boolean
           job_type?: string
           scheduled_date?: string | null
+          scheduled_end_date?: string | null
           scheduled_time?: string | null
           status?: string
           title?: string

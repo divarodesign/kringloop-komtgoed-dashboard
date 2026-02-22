@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { eachDayOfInterval } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -111,7 +112,7 @@ const Agenda = () => {
     const fetchAll = async () => {
       setLoading(true);
       const [jobsRes, apptsRes, cusRes, profRes] = await Promise.all([
-        supabase.from("jobs").select("*, customers(*)").gte("scheduled_date", rangeStart).lte("scheduled_date", rangeEnd).order("scheduled_date"),
+        supabase.from("jobs").select("*, customers(*)").or(`and(scheduled_date.gte.${rangeStart},scheduled_date.lte.${rangeEnd}),and(scheduled_end_date.gte.${rangeStart},scheduled_end_date.lte.${rangeEnd}),and(scheduled_date.lte.${rangeStart},scheduled_end_date.gte.${rangeEnd})`).order("scheduled_date"),
         supabase.from("appointments").select("*, customers(*)").gte("appointment_date", rangeStart).lte("appointment_date", rangeEnd).order("appointment_date"),
         supabase.from("customers").select("*").order("name"),
         supabase.from("profiles").select("*").eq("is_active", true),
@@ -130,15 +131,27 @@ const Agenda = () => {
     const map: Record<string, AgendaItem[]> = {};
     jobs.forEach((j) => {
       if (!j.scheduled_date) return;
-      if (!map[j.scheduled_date]) map[j.scheduled_date] = [];
       const assignee = j.assigned_to ? agendaProfiles.find(p => p.user_id === j.assigned_to) : null;
-      map[j.scheduled_date].push({
+      const item: AgendaItem = {
         id: j.id, title: j.title, time: (j as any).scheduled_time || null,
         date: j.scheduled_date, type: "job", subtitle: j.customers?.name,
         detail: j.work_address ? `${j.work_address}, ${j.work_city}` : undefined,
         status: j.status,
         assigneeName: assignee?.full_name || assignee?.email || null,
-      });
+      };
+      // If multi-day, add to all days in range
+      const endDate = (j as any).scheduled_end_date;
+      if (endDate && endDate !== j.scheduled_date) {
+        const days = eachDayOfInterval({ start: new Date(j.scheduled_date), end: new Date(endDate) });
+        days.forEach(d => {
+          const ds = d.toISOString().split("T")[0];
+          if (!map[ds]) map[ds] = [];
+          map[ds].push({ ...item, date: ds });
+        });
+      } else {
+        if (!map[j.scheduled_date]) map[j.scheduled_date] = [];
+        map[j.scheduled_date].push(item);
+      }
     });
     appointments.forEach((a) => {
       if (!map[a.appointment_date]) map[a.appointment_date] = [];
