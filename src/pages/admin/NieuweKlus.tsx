@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen, Camera, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen, Camera, X, Save } from "lucide-react";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddressFields from "@/components/AddressFields";
@@ -111,6 +111,8 @@ const NieuweKlus = () => {
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
   const [housingType, setHousingType] = useState("");
+  const [conceptJobId, setConceptJobId] = useState<string | null>(null);
+  const [savingConcept, setSavingConcept] = useState(false);
 
   // Category-product links
   const [categoryLinks, setCategoryLinks] = useState<{ product_id: string; category_id: string }[]>([]);
@@ -269,6 +271,116 @@ const NieuweKlus = () => {
     }
   }, [workAddress, workCity, companyAddress]);
 
+  // Load concept job if ?id= is provided
+  useEffect(() => {
+    const conceptId = searchParams.get("id");
+    if (!conceptId) return;
+    const loadConcept = async () => {
+      const { data: job } = await supabase.from("jobs").select("*").eq("id", conceptId).eq("status", "concept").single();
+      if (!job) return;
+      setConceptJobId(job.id);
+      setCustomerId(job.customer_id);
+      setTitle(job.title);
+      setDescription(job.description || "");
+      setJobType(job.job_type as "producten" | "ontruiming");
+      setWorkAddress(job.work_address || "");
+      setWorkCity(job.work_city || "");
+      setWorkPostalCode(job.work_postal_code || "");
+      setTravelKm(job.travel_distance_km ? String(job.travel_distance_km) : "");
+      setDiscountType((job.discount_type as any) || "");
+      setDiscountValue(job.discount_value ? String(job.discount_value) : "");
+      setExtraCosts(job.extra_costs ? String(job.extra_costs) : "");
+      setExtraCostsDesc(job.extra_costs_description || "");
+      setSurchargePercentage((job as any).surcharge_percentage || 0);
+      setAdvisedPrice(job.advised_price || 0);
+      setCustomPrice(job.custom_price ? String(job.custom_price) : "");
+      setScheduledDate(job.scheduled_date || "");
+      setScheduledTime(job.scheduled_time || "");
+      setIsDirect(job.is_direct);
+      // Load saved step from localStorage
+      const savedStep = localStorage.getItem(`concept_step_${conceptId}`);
+      if (savedStep) setStep(parseInt(savedStep));
+
+      // Load job items into rooms
+      const { data: items } = await supabase.from("job_items").select("*").eq("job_id", conceptId);
+      if (items && items.length > 0) {
+        const roomMap: Record<string, SelectedProduct[]> = {};
+        items.forEach((item: any) => {
+          const rn = item.room_name || "Kamer 1";
+          if (!roomMap[rn]) roomMap[rn] = [];
+          roomMap[rn].push({ product_id: item.product_id, description: item.description, quantity: item.quantity, unit_price: item.unit_price });
+        });
+        const loadedRooms: Room[] = Object.entries(roomMap).map(([name, prods]) => ({
+          id: crypto.randomUUID(), name, products: prods, photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "",
+        }));
+        setRooms(loadedRooms);
+      }
+    };
+    loadConcept();
+  }, [searchParams]);
+
+  // Save as concept
+  const saveConcept = useCallback(async () => {
+    if (!customerId && !newCustomer) {
+      toast({ title: "Selecteer eerst een klant", variant: "destructive" });
+      return;
+    }
+    setSavingConcept(true);
+    try {
+      let cid = customerId;
+      if (newCustomer && !cid) {
+        const { data, error } = await supabase.from("customers").insert(customerForm).select().single();
+        if (error) throw error;
+        cid = data.id;
+        setCustomerId(cid);
+        setNewCustomer(false);
+      }
+      const tc = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
+      const ec = parseFloat(extraCosts) || 0;
+      const jobData = {
+        customer_id: cid, title: title || "Concept klus", description: description || null, job_type: jobType, status: "concept" as const,
+        travel_cost: tc, travel_distance_km: parseInt(travelKm) || null,
+        discount_type: discountType || null, discount_value: parseFloat(discountValue) || 0,
+        extra_costs: ec, extra_costs_description: extraCostsDesc || null,
+        surcharge_percentage: surchargePercentage,
+        advised_price: jobType === "ontruiming" ? advisedPrice : null,
+        custom_price: jobType === "ontruiming" && customPrice ? parseFloat(customPrice) : null,
+        work_address: workAddress || null, work_city: workCity || null, work_postal_code: workPostalCode || null,
+        scheduled_date: (isDirect || isQuoteRequest) ? null : scheduledDate || null,
+        scheduled_time: (isDirect || isQuoteRequest) ? null : scheduledTime || null,
+        is_direct: isDirect,
+        created_by: user?.id || null,
+      };
+
+      let jobId = conceptJobId;
+      if (jobId) {
+        await supabase.from("jobs").update(jobData).eq("id", jobId);
+      } else {
+        const { data: job, error: jobErr } = await supabase.from("jobs").insert(jobData).select().single();
+        if (jobErr) throw jobErr;
+        jobId = job.id;
+        setConceptJobId(jobId);
+      }
+
+      // Save current step to localStorage
+      localStorage.setItem(`concept_step_${jobId}`, String(step));
+
+      // Upsert job items: delete old, insert new
+      await supabase.from("job_items").delete().eq("job_id", jobId);
+      const itemsWithRooms = rooms.flatMap(r => r.products.map(p => ({
+        job_id: jobId!, product_id: p.product_id, description: p.description, quantity: p.quantity, unit_price: p.unit_price, room_name: r.name,
+      })));
+      if (itemsWithRooms.length > 0) {
+        await supabase.from("job_items").insert(itemsWithRooms);
+      }
+
+      toast({ title: "Concept opgeslagen!" });
+    } catch (e: any) {
+      toast({ title: "Fout bij opslaan", description: e.message, variant: "destructive" });
+    }
+    setSavingConcept(false);
+  }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
+
   const travelCost = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
   const subtotal = jobType === "ontruiming" ? (parseFloat(customPrice) || advisedPrice) : productsTotal;
@@ -287,7 +399,7 @@ const NieuweKlus = () => {
       if (error) { toast({ title: "Fout bij klant aanmaken", description: error.message, variant: "destructive" }); return; }
       cid = data.id;
     }
-    const { data: job, error: jobErr } = await supabase.from("jobs").insert({
+    const jobData = {
       customer_id: cid, title, description: description || null, job_type: jobType, status: "nieuw",
       travel_cost: travelCost, travel_distance_km: parseInt(travelKm) || null,
       discount_type: discountType || null, discount_value: parseFloat(discountValue) || 0,
@@ -298,8 +410,23 @@ const NieuweKlus = () => {
       work_address: workAddress || null, work_city: workCity || null, work_postal_code: workPostalCode || null,
       scheduled_date: (isDirect || isQuoteRequest) ? null : scheduledDate || null, scheduled_time: (isDirect || isQuoteRequest) ? null : scheduledTime || null, is_direct: isDirect,
       created_by: user?.id || null,
-    }).select().single();
-    if (jobErr) { toast({ title: "Fout", description: jobErr.message, variant: "destructive" }); return; }
+    };
+
+    let job: any;
+    if (conceptJobId) {
+      // Update existing concept job to "nieuw"
+      const { data, error: jobErr } = await supabase.from("jobs").update(jobData).eq("id", conceptJobId).select().single();
+      if (jobErr) { toast({ title: "Fout", description: jobErr.message, variant: "destructive" }); return; }
+      job = data;
+      // Delete old items, they'll be re-inserted below
+      await supabase.from("job_items").delete().eq("job_id", conceptJobId);
+      // Clean up localStorage
+      localStorage.removeItem(`concept_step_${conceptJobId}`);
+    } else {
+      const { data, error: jobErr } = await supabase.from("jobs").insert(jobData).select().single();
+      if (jobErr) { toast({ title: "Fout", description: jobErr.message, variant: "destructive" }); return; }
+      job = data;
+    }
     if (selectedProducts.length > 0) {
       // Map products to their room names
       const itemsWithRooms: { job_id: string; product_id: string | null; description: string; quantity: number; unit_price: number; room_name: string | null }[] = [];
@@ -1035,7 +1162,7 @@ const NieuweKlus = () => {
         )}
 
         {/* Navigation buttons */}
-        <div className="flex justify-between bg-background/95 backdrop-blur py-3 px-4 sm:static sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0">
+        <div className="flex justify-between items-center bg-background/95 backdrop-blur py-3 px-4 sm:static sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0">
           <Button variant="outline" size="sm" onClick={() => {
             if (step > 0) {
               setStep(step - 1);
@@ -1045,13 +1172,20 @@ const NieuweKlus = () => {
           }}>
             <ArrowLeft className="mr-1.5 h-4 w-4" /> {step === 0 ? "Annuleren" : "Vorige"}
           </Button>
-          {step < STEPS.length - 1 ? (
-            <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
-          ) : (
-            <Button size="sm" onClick={handleSubmit}>
-              <Check className="mr-1.5 h-4 w-4" /> {isQuoteRequest ? "Offerte versturen" : "Aanmaken"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {step > 0 && (
+              <Button variant="ghost" size="sm" onClick={saveConcept} disabled={savingConcept}>
+                <Save className="mr-1.5 h-4 w-4" /> {savingConcept ? "Opslaan..." : "Concept"}
+              </Button>
+            )}
+            {step < STEPS.length - 1 ? (
+              <Button size="sm" onClick={() => setStep(step + 1)}>Volgende <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
+            ) : (
+              <Button size="sm" onClick={handleSubmit}>
+                <Check className="mr-1.5 h-4 w-4" /> {isQuoteRequest ? "Offerte versturen" : "Aanmaken"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
