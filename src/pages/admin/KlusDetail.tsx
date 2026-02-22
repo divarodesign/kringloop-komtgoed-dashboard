@@ -495,7 +495,10 @@ const KlusDetail = () => {
     ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
     : job.discount_type === "fixed" ? job.discount_value : 0;
   const extraSalesTotal = extraSales.reduce((s, es) => s + Number(es.amount), 0);
-  const total = subtotal + job.travel_cost + (job.extra_costs || 0) + extraSalesTotal - discount;
+  const surchargePercentage = (job as any).surcharge_percentage || 0;
+  const beforeSurcharge = subtotal + job.travel_cost + (job.extra_costs || 0) + extraSalesTotal - discount;
+  const surchargeAmount = beforeSurcharge * (surchargePercentage / 100);
+  const total = beforeSurcharge + surchargeAmount;
   const fullAddress = getFullAddress();
 
   return (
@@ -1095,6 +1098,7 @@ const KlusDetail = () => {
               <div className="flex justify-between"><span className="text-muted-foreground text-xs">Extra werkzaamheden ({extraSales.length})</span><span>{formatPrice(extraSalesTotal)}</span></div>
             )}
             {discount > 0 && <div className="flex justify-between text-destructive"><span>Korting</span><span>-{formatPrice(discount)}</span></div>}
+            {surchargePercentage > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Toeslag ({surchargePercentage}%)</span><span>+{formatPrice(surchargeAmount)}</span></div>}
             <div className="flex justify-between font-bold text-base border-t pt-2"><span>Totaal</span><span>{formatPrice(total)}</span></div>
           </div>
         </CardContent>
