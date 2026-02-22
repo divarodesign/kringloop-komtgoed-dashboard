@@ -205,12 +205,26 @@ Deno.serve(async (req) => {
         });
       }
 
-      // For ontruiming with custom price, replace product lines with single line
-      if (job.job_type === "ontruiming" && job.custom_price) {
-        lines.length = 0;
-        lines.push({ Description: "Ontruiming", Number: 1, PriceExcl: job.custom_price });
-        if (job.travel_cost > 0) lines.push({ Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`, Number: 1, PriceExcl: job.travel_cost });
-        if ((job.extra_costs || 0) > 0) lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceExcl: job.extra_costs });
+      // For ontruiming: show all items at €0, then a single total line
+      if (job.job_type === "ontruiming") {
+        // Calculate total from items + travel + extra costs
+        const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
+        const totalPrice = job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0));
+        
+        // Zero out all existing line prices
+        lines.forEach((line: any) => { line.PriceExcl = 0; });
+        
+        // Add total project price line
+        lines.push({
+          Description: " ",
+          Number: 1,
+          PriceExcl: 0,
+        });
+        lines.push({
+          Description: "Totaalprijs project",
+          Number: 1,
+          PriceExcl: totalPrice,
+        });
       }
 
       // Build pricequote params
@@ -295,11 +309,23 @@ Deno.serve(async (req) => {
         lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceExcl: job.extra_costs });
       }
 
-      if (job.job_type === "ontruiming" && job.custom_price) {
-        lines.length = 0;
-        lines.push({ Description: "Ontruiming", Number: 1, PriceExcl: job.custom_price });
-        if (job.travel_cost > 0) lines.push({ Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`, Number: 1, PriceExcl: job.travel_cost });
-        if ((job.extra_costs || 0) > 0) lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceExcl: job.extra_costs });
+      // For ontruiming: show all items at €0, then a single total line
+      if (job.job_type === "ontruiming") {
+        const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
+        const totalPrice = job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0));
+        
+        lines.forEach((line: any) => { line.PriceExcl = 0; });
+        
+        lines.push({
+          Description: " ",
+          Number: 1,
+          PriceExcl: 0,
+        });
+        lines.push({
+          Description: "Totaalprijs project",
+          Number: 1,
+          PriceExcl: totalPrice,
+        });
       }
 
       // Extra sales
