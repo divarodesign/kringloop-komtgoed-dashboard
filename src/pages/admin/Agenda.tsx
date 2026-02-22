@@ -61,7 +61,7 @@ const Agenda = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [agendaProfiles, setAgendaProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<ViewMode>("week");
+  const [view, setView] = useState<ViewMode>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -424,8 +424,16 @@ const Agenda = () => {
               const today = isToday(date);
               const inMonth = date.getMonth() === currentMonth;
               return (
-                <div key={i} className={`min-h-[100px] p-1.5 border-b border-r border-border last:border-r-0 ${!inMonth ? "bg-muted/30" : today ? "bg-primary/5" : "bg-background"}`}>
-                  <p className={`text-xs font-medium mb-1 ${today ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center" : !inMonth ? "text-muted-foreground/40" : "text-foreground"}`}>{date.getDate()}</p>
+                <div key={i} className={`group relative min-h-[100px] p-1.5 border-b border-r border-border last:border-r-0 ${!inMonth ? "bg-muted/30" : today ? "bg-primary/5" : "bg-background"}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`text-xs font-medium ${today ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center" : !inMonth ? "text-muted-foreground/40" : "text-foreground"}`}>{date.getDate()}</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openAddDialog(dateStr); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 flex items-center justify-center rounded-full hover:bg-primary/10 text-primary"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <div className="space-y-0.5">
                     {items.slice(0, 3).map((item) => (
                       <div
