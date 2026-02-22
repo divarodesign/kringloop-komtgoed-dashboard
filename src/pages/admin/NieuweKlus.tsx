@@ -971,6 +971,7 @@ const NieuweKlus = () => {
               <div className="flex justify-between"><span className="text-xs text-muted-foreground">{jobType === "ontruiming" ? "Ontruiming" : "Producten"}</span><span className="text-xs">{formatPrice(subtotal)}</span></div>
               {extra > 0 && <div className="flex justify-between"><span className="text-xs text-muted-foreground">Overig</span><span className="text-xs">{formatPrice(extra)}</span></div>}
               {discount > 0 && <div className="flex justify-between text-destructive"><span className="text-xs">Korting</span><span className="text-xs">-{formatPrice(discount)}</span></div>}
+              {surchargePercentage > 0 && <div className="flex justify-between text-green-600"><span className="text-xs">Toeslag ({surchargePercentage}%)</span><span className="text-xs">+{formatPrice(surchargeAmount)}</span></div>}
               <div className="flex justify-between font-bold border-t pt-2"><span>Totaal</span><span>{formatPrice(total)}</span></div>
             </div>
           </CardContent>
