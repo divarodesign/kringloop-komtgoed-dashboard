@@ -339,7 +339,7 @@ const NieuweKlus = () => {
       const tc = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
       const ec = parseFloat(extraCosts) || 0;
       const jobData = {
-        customer_id: cid, title: title || "Concept klus", description: description || null, job_type: jobType, status: "concept" as const,
+        customer_id: cid, title: title || "Concept klus", description: description || null, job_type: jobType, housing_type: housingType || null, status: "concept" as const,
         travel_cost: tc, travel_distance_km: parseInt(travelKm) || null,
         discount_type: discountType || null, discount_value: parseFloat(discountValue) || 0,
         extra_costs: ec, extra_costs_description: extraCostsDesc || null,
@@ -404,7 +404,7 @@ const NieuweKlus = () => {
       cid = data.id;
     }
     const jobData = {
-      customer_id: cid, title, description: description || null, job_type: jobType, status: "nieuw",
+      customer_id: cid, title, description: description || null, job_type: jobType, housing_type: housingType || null, status: "nieuw",
       travel_cost: travelCost, travel_distance_km: parseInt(travelKm) || null,
       discount_type: discountType || null, discount_value: parseFloat(discountValue) || 0,
       extra_costs: extra, extra_costs_description: extraCostsDesc || null,
