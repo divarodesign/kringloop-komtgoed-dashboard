@@ -218,16 +218,33 @@ Deno.serve(async (req) => {
         const surcharge = job.surcharge_percentage || 0;
         const totalPriceIncl = (job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0))) * (1 + surcharge / 100);
         
-        // Remove travel cost and extra cost lines (keep only product lines)
-        const productLinesOnly = lines.filter((line: any) => 
-          !line.Description.startsWith("Voorrijkosten") && 
-          line.Description !== (job.extra_costs_description || "Overige kosten")
-        );
+        // Rebuild lines for ontruiming: quantity in description, all prices €0
         lines.length = 0;
-        productLinesOnly.forEach((l: any) => lines.push(l));
         
-        // Zero out prices, keep quantities in Number field
-        lines.forEach((line: any) => { line.PriceExcl = 0; });
+        if (hasRooms) {
+          for (let ri = 0; ri < roomNames.length; ri++) {
+            const roomName = roomNames[ri];
+            if (ri > 0) {
+              lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
+            }
+            lines.push({ Description: `=== ${roomName.toUpperCase()} ===`, Number: 1, PriceExcl: 0 });
+            for (const item of roomGroups[roomName]) {
+              lines.push({
+                Description: `${item.quantity}x ${item.description}`,
+                Number: 1,
+                PriceExcl: 0,
+              });
+            }
+          }
+        } else {
+          for (const item of (jobItems || [])) {
+            lines.push({
+              Description: `${(item as any).quantity}x ${(item as any).description}`,
+              Number: 1,
+              PriceExcl: 0,
+            });
+          }
+        }
         
         lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
         lines.push({ Description: "Totaalprijs project", Number: 1, PriceExcl: toExcl(totalPriceIncl) });
