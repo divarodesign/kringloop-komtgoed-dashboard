@@ -157,6 +157,9 @@ const Klussen = () => {
                     <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${statusColors[j.status] || ""}`}>
                       {statusLabels[j.status] || j.status}
                     </Badge>
+                    {(j as any).housing_type && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">{(j as any).housing_type}</Badge>
+                    )}
                     {getAddressShort(j) && (
                       <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                         <MapPin className="h-2.5 w-2.5" />{getAddressShort(j)}
@@ -216,6 +219,9 @@ const Klussen = () => {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={statusColors[j.status] || ""}>{statusLabels[j.status] || j.status}</Badge>
+                        {(j as any).housing_type && (
+                          <Badge variant="outline" className="capitalize ml-1">{(j as any).housing_type}</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{j.is_direct ? "Direct" : formatDate(j.scheduled_date)}</TableCell>
                       <TableCell className="text-right font-medium">{formatPrice(getJobTotal(j))}</TableCell>

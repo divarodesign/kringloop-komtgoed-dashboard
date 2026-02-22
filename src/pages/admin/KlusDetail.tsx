@@ -803,6 +803,9 @@ const KlusDetail = () => {
             <div className="flex items-center gap-2">
               <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <Badge variant="secondary" className="capitalize text-xs">{job.job_type}</Badge>
+              {(job as any).housing_type && (
+                <Badge variant="outline" className="capitalize text-xs">{(job as any).housing_type}</Badge>
+              )}
             </div>
 
             {editing ? (

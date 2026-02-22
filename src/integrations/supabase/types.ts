@@ -349,6 +349,7 @@ export type Database = {
           discount_value: number | null
           extra_costs: number | null
           extra_costs_description: string | null
+          housing_type: string | null
           id: string
           is_direct: boolean
           job_type: string
@@ -377,6 +378,7 @@ export type Database = {
           discount_value?: number | null
           extra_costs?: number | null
           extra_costs_description?: string | null
+          housing_type?: string | null
           id?: string
           is_direct?: boolean
           job_type?: string
@@ -405,6 +407,7 @@ export type Database = {
           discount_value?: number | null
           extra_costs?: number | null
           extra_costs_description?: string | null
+          housing_type?: string | null
           id?: string
           is_direct?: boolean
           job_type?: string
