@@ -356,6 +356,7 @@ export type Database = {
           scheduled_end_date: string | null
           scheduled_time: string | null
           status: string
+          surcharge_percentage: number | null
           title: string
           travel_cost: number
           travel_distance_km: number | null
@@ -383,6 +384,7 @@ export type Database = {
           scheduled_end_date?: string | null
           scheduled_time?: string | null
           status?: string
+          surcharge_percentage?: number | null
           title: string
           travel_cost?: number
           travel_distance_km?: number | null
@@ -410,6 +412,7 @@ export type Database = {
           scheduled_end_date?: string | null
           scheduled_time?: string | null
           status?: string
+          surcharge_percentage?: number | null
           title?: string
           travel_cost?: number
           travel_distance_km?: number | null

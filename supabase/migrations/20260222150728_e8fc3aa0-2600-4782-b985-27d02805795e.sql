@@ -1,0 +1,1 @@
+ALTER TABLE public.jobs ADD COLUMN surcharge_percentage integer DEFAULT 0;
