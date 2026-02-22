@@ -225,8 +225,13 @@ Deno.serve(async (req) => {
         lines.length = 0;
         productLinesOnly.forEach((l: any) => lines.push(l));
         
-        // Zero out all product line prices
-        lines.forEach((line: any) => { line.PriceExcl = 0; });
+        // Zero out prices but keep quantities visible; prepend quantity to description
+        lines.forEach((line: any) => {
+          if (line.Number > 0 && line.PriceExcl > 0) {
+            line.Description = `${line.Number}x ${line.Description.trim()}`;
+          }
+          line.PriceExcl = 0;
+        });
         
         lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
         lines.push({ Description: "Totaalprijs project", Number: 1, PriceExcl: totalPrice });
@@ -333,7 +338,12 @@ Deno.serve(async (req) => {
         lines.length = 0;
         productLinesOnly.forEach((l: any) => lines.push(l));
         
-        lines.forEach((line: any) => { line.PriceExcl = 0; });
+        lines.forEach((line: any) => {
+          if (line.Number > 0 && line.PriceExcl > 0) {
+            line.Description = `${line.Number}x ${line.Description.trim()}`;
+          }
+          line.PriceExcl = 0;
+        });
         
         lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
         lines.push({ Description: "Totaalprijs project", Number: 1, PriceExcl: totalPrice });
