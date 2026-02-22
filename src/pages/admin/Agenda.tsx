@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ChevronLeft, ChevronRight, Clock, Plus, Briefcase, CalendarDays, Trash2, Phone, Navigation } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import type { Job, Appointment, Customer } from "@/types/database";
+import type { Job, Appointment, Customer, Profile } from "@/types/database";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -32,6 +32,7 @@ interface AgendaItem {
   customerId?: string | null;
   phone?: string | null;
   navAddress?: string | null;
+  assigneeName?: string | null;
 }
 
 const DAYS_SHORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
@@ -57,6 +58,7 @@ const Agenda = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [agendaProfiles, setAgendaProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -108,14 +110,16 @@ const Agenda = () => {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [jobsRes, apptsRes, cusRes] = await Promise.all([
+      const [jobsRes, apptsRes, cusRes, profRes] = await Promise.all([
         supabase.from("jobs").select("*, customers(*)").gte("scheduled_date", rangeStart).lte("scheduled_date", rangeEnd).order("scheduled_date"),
         supabase.from("appointments").select("*, customers(*)").gte("appointment_date", rangeStart).lte("appointment_date", rangeEnd).order("appointment_date"),
         supabase.from("customers").select("*").order("name"),
+        supabase.from("profiles").select("*").eq("is_active", true),
       ]);
       setJobs((jobsRes.data as Job[]) || []);
       setAppointments((apptsRes.data as Appointment[]) || []);
       setCustomers((cusRes.data as Customer[]) || []);
+      setAgendaProfiles((profRes.data as Profile[]) || []);
       setLoading(false);
     };
     fetchAll();
@@ -127,11 +131,13 @@ const Agenda = () => {
     jobs.forEach((j) => {
       if (!j.scheduled_date) return;
       if (!map[j.scheduled_date]) map[j.scheduled_date] = [];
+      const assignee = j.assigned_to ? agendaProfiles.find(p => p.user_id === j.assigned_to) : null;
       map[j.scheduled_date].push({
         id: j.id, title: j.title, time: (j as any).scheduled_time || null,
         date: j.scheduled_date, type: "job", subtitle: j.customers?.name,
         detail: j.work_address ? `${j.work_address}, ${j.work_city}` : undefined,
         status: j.status,
+        assigneeName: assignee?.full_name || assignee?.email || null,
       });
     });
     appointments.forEach((a) => {
@@ -152,7 +158,7 @@ const Agenda = () => {
     // Sort each day by time
     Object.values(map).forEach((items) => items.sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99")));
     return map;
-  }, [jobs, appointments]);
+  }, [jobs, appointments, agendaProfiles]);
 
   const navigate_ = (dir: -1 | 1) => {
     const d = new Date(currentDate);
@@ -242,6 +248,7 @@ const Agenda = () => {
       <div className="min-w-0 flex-1">
         <p className={`${compact ? "text-[11px]" : "text-sm"} font-medium truncate`}>{compact && item.time ? `${item.time} ` : ""}{item.title}</p>
         {!compact && item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
+        {!compact && item.assigneeName && <p className="text-[10px] text-muted-foreground truncate">Medewerker: {item.assigneeName}</p>}
         {!compact && item.address && <p className="text-[11px] text-muted-foreground truncate">{item.address}</p>}
       </div>
       {!compact && item.type === "appointment" && (

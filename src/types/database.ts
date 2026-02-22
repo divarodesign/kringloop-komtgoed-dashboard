@@ -117,6 +117,7 @@ export interface Delivery {
   job_id: string;
   status: string;
   notes: string | null;
+  pdf_url: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
