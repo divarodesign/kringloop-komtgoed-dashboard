@@ -496,14 +496,28 @@ const KlusDetail = () => {
       )}
 
       {/* Status selector */}
-      <Select value={job.status} onValueChange={updateStatus}>
-        <SelectTrigger className="w-full sm:w-48">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      {(() => {
+        const statusColors: Record<string, string> = {
+          nieuw: "bg-muted text-muted-foreground",
+          offerte_verstuurd: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300",
+          offerte_geaccepteerd: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300",
+          offerte_geweigerd: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300",
+          in_uitvoering: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300",
+          oplevering: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300",
+          gefactureerd: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300",
+          afgerond: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300",
+        };
+        return (
+          <Select value={job.status} onValueChange={updateStatus}>
+            <SelectTrigger className={cn("w-full sm:w-56 font-medium text-xs rounded-full h-8", statusColors[job.status] || "")}>
+              <SelectValue>{statusLabels[job.status] || job.status}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        );
+      })()}
 
       {/* Info cards */}
       <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
