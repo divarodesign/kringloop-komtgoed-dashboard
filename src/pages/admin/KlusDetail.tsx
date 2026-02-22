@@ -22,7 +22,8 @@ import { cn } from "@/lib/utils";
 import type { Job, JobItem, Profile, Delivery, DeliveryPhoto } from "@/types/database";
 
 const statusLabels: Record<string, string> = {
-  nieuw: "Nieuw", offerte_verstuurd: "Offerte verstuurd", in_uitvoering: "In uitvoering",
+  nieuw: "Nieuw", offerte_verstuurd: "Offerte verstuurd", offerte_geaccepteerd: "Offerte geaccepteerd",
+  offerte_geweigerd: "Offerte geweigerd", in_uitvoering: "In uitvoering",
   oplevering: "Oplevering", gefactureerd: "Gefactureerd", afgerond: "Afgerond",
 };
 
@@ -467,7 +468,7 @@ const KlusDetail = () => {
       {/* Workflow Action Buttons */}
       {!editing && (
         <div className="flex flex-wrap gap-2">
-          {job.status === "offerte_verstuurd" && (
+          {(job.status === "offerte_verstuurd" || job.status === "offerte_geaccepteerd") && (
             <Button onClick={() => {
               const from = job.scheduled_date ? new Date(job.scheduled_date) : undefined;
               const to = (job as any).scheduled_end_date ? new Date((job as any).scheduled_end_date) : undefined;
