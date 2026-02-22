@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Job, JobItem } from "@/types/database";
 
 const statusLabels: Record<string, string> = {
+  concept: "Concept",
   nieuw: "Nieuw",
   offerte_verstuurd: "Offerte verstuurd",
   in_uitvoering: "In uitvoering",
@@ -22,6 +23,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
+  concept: "bg-gray-100 text-gray-600",
   nieuw: "bg-blue-100 text-blue-700",
   offerte_verstuurd: "bg-amber-100 text-amber-700",
   in_uitvoering: "bg-primary/10 text-primary",
@@ -145,7 +147,7 @@ const Klussen = () => {
             {filtered.map((j) => (
               <button
                 key={j.id}
-                onClick={() => navigate(`/admin/klussen/${j.id}`)}
+                onClick={() => navigate(j.status === "concept" ? `/admin/klussen/nieuw?id=${j.id}` : `/admin/klussen/${j.id}`)}
                 className="w-full flex items-center gap-3 p-3.5 bg-card rounded-xl border border-border/50 shadow-sm active:scale-[0.98] transition-transform touch-manipulation text-left"
               >
                 <div className="flex-1 min-w-0">
@@ -206,7 +208,7 @@ const Klussen = () => {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((j) => (
-                    <TableRow key={j.id} className="cursor-pointer" onClick={() => navigate(`/admin/klussen/${j.id}`)}>
+                    <TableRow key={j.id} className="cursor-pointer" onClick={() => navigate(j.status === "concept" ? `/admin/klussen/nieuw?id=${j.id}` : `/admin/klussen/${j.id}`)}>
                       <TableCell className="font-medium">{j.title}</TableCell>
                       <TableCell className="text-muted-foreground">{j.customers?.name || "-"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">
