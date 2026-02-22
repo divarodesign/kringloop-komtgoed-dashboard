@@ -9,6 +9,11 @@ const corsHeaders = {
 const WEFACT_URL = "https://api.mijnwefact.nl/v2/";
 const BTW_RATE = 1.21;
 
+// Convert price from incl BTW to excl BTW
+function toExcl(priceIncl: number): number {
+  return Math.round((priceIncl / BTW_RATE) * 100) / 100;
+}
+
 async function wefactRequest(controller: string, action: string, params: Record<string, unknown> = {}) {
   const apiKey = Deno.env.get("WEFACT_API_KEY");
   if (!apiKey) throw new Error("WEFACT_API_KEY is not configured");
@@ -158,18 +163,18 @@ Deno.serve(async (req) => {
         for (let ri = 0; ri < roomNames.length; ri++) {
           const roomName = roomNames[ri];
           if (ri > 0) {
-            lines.push({ Description: " ", Number: 1, PriceIncl: 0 });
+            lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
           }
           lines.push({
             Description: `=== ${roomName.toUpperCase()} ===`,
             Number: 1,
-            PriceIncl: 0,
+            PriceExcl: 0,
           });
           for (const item of roomGroups[roomName]) {
             lines.push({
               Description: `  ${item.description}`,
               Number: item.quantity,
-              PriceIncl: item.unit_price,
+              PriceExcl: toExcl(item.unit_price),
             });
           }
         }
@@ -178,7 +183,7 @@ Deno.serve(async (req) => {
           lines.push({
             Description: (item as any).description,
             Number: (item as any).quantity,
-            PriceIncl: (item as any).unit_price,
+            PriceExcl: toExcl((item as any).unit_price),
           });
         }
       }
@@ -188,7 +193,7 @@ Deno.serve(async (req) => {
         lines.push({
           Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`,
           Number: 1,
-          PriceIncl: job.travel_cost,
+          PriceExcl: toExcl(job.travel_cost),
         });
       }
 
@@ -197,14 +202,14 @@ Deno.serve(async (req) => {
         lines.push({
           Description: job.extra_costs_description || "Overige kosten",
           Number: 1,
-          PriceIncl: job.extra_costs,
+          PriceExcl: toExcl(job.extra_costs),
         });
       }
 
       // Apply surcharge for non-ontruiming (silently increase all line prices)
       if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
         const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
+        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
       }
 
       // For ontruiming: show all items at €0, remove travel/extra cost lines, add single total
@@ -220,14 +225,14 @@ Deno.serve(async (req) => {
           for (let ri = 0; ri < roomNames.length; ri++) {
             const roomName = roomNames[ri];
             if (ri > 0) {
-              lines.push({ Description: " ", Number: 1, PriceIncl: 0 });
+              lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
             }
-            lines.push({ Description: `=== ${roomName.toUpperCase()} ===`, Number: 1, PriceIncl: 0 });
+            lines.push({ Description: `=== ${roomName.toUpperCase()} ===`, Number: 1, PriceExcl: 0 });
             for (const item of roomGroups[roomName]) {
               lines.push({
                 Description: `${item.quantity}x ${item.description}`,
                 Number: 1,
-                PriceIncl: 0,
+                PriceExcl: 0,
               });
             }
           }
@@ -236,13 +241,13 @@ Deno.serve(async (req) => {
             lines.push({
               Description: `${(item as any).quantity}x ${(item as any).description}`,
               Number: 1,
-              PriceIncl: 0,
+              PriceExcl: 0,
             });
           }
         }
         
-        lines.push({ Description: " ", Number: 1, PriceIncl: 0 });
-        lines.push({ Description: "Totaalprijs project", Number: 1, PriceIncl: totalPriceIncl });
+        lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
+        lines.push({ Description: "Totaalprijs project", Number: 1, PriceExcl: toExcl(totalPriceIncl) });
       }
 
       // Build pricequote params
@@ -262,7 +267,7 @@ Deno.serve(async (req) => {
         lines.push({
           Description: "Korting",
           Number: 1,
-          PriceIncl: -job.discount_value,
+          PriceExcl: toExcl(-job.discount_value),
         });
       }
 
@@ -270,7 +275,7 @@ Deno.serve(async (req) => {
 
       const quoteNumber = quoteResult.pricequote?.PriceQuoteCode || null;
       // Calculate total incl BTW for our DB
-      const totalAmount = lines.filter((l: any) => l.Number > 0).reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
+      const totalAmount = lines.filter((l: any) => l.Number > 0).reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * BTW_RATE, 0);
 
       // Save quote in our DB
       await supabase.from("quotes").insert({
@@ -317,20 +322,20 @@ Deno.serve(async (req) => {
       const lines = (jobItems || []).map((item: any) => ({
         Description: item.description,
         Number: item.quantity,
-        PriceIncl: item.unit_price,
+        PriceExcl: toExcl(item.unit_price),
       }));
 
       if (job.travel_cost > 0) {
-        lines.push({ Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`, Number: 1, PriceIncl: job.travel_cost });
+        lines.push({ Description: `Voorrijkosten (${job.travel_distance_km || 0} km)`, Number: 1, PriceExcl: toExcl(job.travel_cost) });
       }
       if ((job.extra_costs || 0) > 0) {
-        lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceIncl: job.extra_costs });
+        lines.push({ Description: job.extra_costs_description || "Overige kosten", Number: 1, PriceExcl: toExcl(job.extra_costs) });
       }
 
       // Apply surcharge for non-ontruiming
       if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
         const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
+        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
       }
 
       // For ontruiming: show all items at €0, add single total
@@ -346,16 +351,16 @@ Deno.serve(async (req) => {
         lines.length = 0;
         productLinesOnly.forEach((l: any) => lines.push(l));
         
-        lines.forEach((line: any) => { line.PriceIncl = 0; });
+        lines.forEach((line: any) => { line.PriceExcl = 0; });
         
-        lines.push({ Description: " ", Number: 1, PriceIncl: 0 });
-        lines.push({ Description: "Totaalprijs project", Number: 1, PriceIncl: totalPriceIncl });
+        lines.push({ Description: " ", Number: 1, PriceExcl: 0 });
+        lines.push({ Description: "Totaalprijs project", Number: 1, PriceExcl: toExcl(totalPriceIncl) });
       }
 
       // Extra sales
       const { data: extraSales } = await supabase.from("extra_sales").select("*").eq("job_id", job_id);
       (extraSales || []).forEach((es: any) => {
-        lines.push({ Description: `Bijverkoop: ${es.description}`, Number: 1, PriceIncl: es.amount });
+        lines.push({ Description: `Bijverkoop: ${es.description}`, Number: 1, PriceExcl: toExcl(es.amount) });
       });
 
       // Discount
@@ -366,7 +371,7 @@ Deno.serve(async (req) => {
           ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
           : job.discount_value;
         if (discountAmount > 0) {
-          lines.push({ Description: `Korting${job.discount_type === "percentage" ? ` (${job.discount_value}%)` : ""}`, Number: 1, PriceIncl: -discountAmount });
+          lines.push({ Description: `Korting${job.discount_type === "percentage" ? ` (${job.discount_value}%)` : ""}`, Number: 1, PriceExcl: toExcl(-discountAmount) });
         }
       }
 
@@ -376,7 +381,7 @@ Deno.serve(async (req) => {
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
+      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * BTW_RATE, 0);
 
       await supabase.from("invoices").insert({
         job_id,
@@ -397,7 +402,7 @@ Deno.serve(async (req) => {
       const wefactLines = (customInvoiceLines || []).map((l: any) => ({
         Description: l.description,
         Number: l.quantity,
-        PriceIncl: l.price,
+        PriceExcl: toExcl(l.price),
       }));
 
       const invoiceResult = await wefactRequest("invoice", "add", {
@@ -406,7 +411,7 @@ Deno.serve(async (req) => {
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
+      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * BTW_RATE, 0);
 
       await supabase.from("invoices").insert({
         job_id,
