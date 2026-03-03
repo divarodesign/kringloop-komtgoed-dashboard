@@ -434,6 +434,57 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          address: string | null
+          advised_price: number | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          job_id: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          postal_code: string | null
+          rooms: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          advised_price?: number | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          job_id?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          rooms?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          advised_price?: number | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          job_id?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          rooms?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           created_at: string

@@ -1,20 +1,23 @@
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, Briefcase, Calendar, ClipboardCheck,
-  Package, Receipt, UserCog, Settings, LogOut, Recycle
+  Package, Receipt, UserCog, Settings, LogOut, Recycle, Inbox
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarHeader, SidebarFooter,
+  SidebarHeader, SidebarFooter, SidebarMenuBadge,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Klanten", url: "/admin/klanten", icon: Users },
   { title: "Klussen", url: "/admin/klussen", icon: Briefcase },
+  { title: "Leads", url: "/admin/leads", icon: Inbox, badge: true },
   { title: "Agenda", url: "/admin/agenda", icon: Calendar },
   { title: "Opleveringen", url: "/admin/opleveringen", icon: ClipboardCheck },
   { title: "Producten", url: "/admin/producten", icon: Package },
@@ -25,6 +28,18 @@ const navItems = [
 
 export function AdminSidebar() {
   const { signOut } = useAuth();
+  const [nieuwLeadsCount, setNieuwLeadsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from("leads")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "nieuw");
+      setNieuwLeadsCount(count || 0);
+    };
+    fetchCount();
+  }, []);
 
   return (
     <Sidebar>
@@ -58,6 +73,9 @@ export function AdminSidebar() {
                       <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
+                  {item.badge && nieuwLeadsCount > 0 && (
+                    <SidebarMenuBadge>{nieuwLeadsCount}</SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

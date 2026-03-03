@@ -20,6 +20,7 @@ import Producten from "@/pages/admin/Producten";
 import Financieel from "@/pages/admin/Financieel";
 import Gebruikers from "@/pages/admin/Gebruikers";
 import Instellingen from "@/pages/admin/Instellingen";
+import Leads from "@/pages/admin/Leads";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="klussen" element={<Klussen />} />
               <Route path="klussen/nieuw" element={<NieuweKlus />} />
               <Route path="klussen/:id" element={<KlusDetail />} />
+              <Route path="leads" element={<Leads />} />
               <Route path="agenda" element={<Agenda />} />
               <Route path="opleveringen" element={<Opleveringen />} />
               <Route path="producten" element={<Producten />} />
