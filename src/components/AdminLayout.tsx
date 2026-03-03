@@ -34,7 +34,7 @@ const AdminLayout = () => {
 
           {/* Mobile bottom navigation */}
           <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border safe-area-bottom">
-            <div className="flex items-center justify-around h-14">
+            <div className="flex items-center justify-around h-16">
               {bottomNavItems.map((item) => {
                 const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
                 return (
@@ -47,8 +47,8 @@ const AdminLayout = () => {
                         : "text-muted-foreground"
                     }`}
                   >
-                    <item.icon className={`h-5 w-5 ${isActive ? "stroke-[2.5]" : ""}`} />
-                    <span className="text-[10px] font-medium">{item.label}</span>
+                    <item.icon className={`h-6 w-6 ${isActive ? "stroke-[2.5]" : ""}`} />
+                    <span className="text-[11px] font-medium">{item.label}</span>
                   </button>
                 );
               })}
