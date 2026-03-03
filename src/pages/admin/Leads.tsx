@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar, Image, ChevronRight, Phone, Mail, MapPin } from "lucide-react";
+import { Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar, Image, ChevronRight, Phone, Mail, MapPin, X } from "lucide-react";
 
 interface LeadRoom {
   id: string;
@@ -38,12 +37,11 @@ const formatPrice = (p: number) =>
   new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
 
 const statusConfig = {
-  nieuw: { label: "Nieuw", variant: "default" as const, className: "bg-primary text-primary-foreground" },
-  omgezet: { label: "Omgezet", variant: "secondary" as const, className: "" },
-  afgewezen: { label: "Afgewezen", variant: "destructive" as const, className: "" },
+  nieuw: { label: "Nieuw", variant: "default" as const },
+  omgezet: { label: "Omgezet", variant: "secondary" as const },
+  afgewezen: { label: "Afgewezen", variant: "destructive" as const },
 };
 
-// Parse structured data out of the notes field
 function parseNotes(raw: string | null): {
   cleanNotes: string;
   woningtype: string | null;
@@ -128,7 +126,6 @@ export default function Leads() {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
     return (
       <div className="space-y-4 pb-6">
-        {/* Contact info */}
         <div className="space-y-2">
           {lead.phone && (
             <a href={`tel:${lead.phone}`} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
@@ -165,7 +162,6 @@ export default function Leads() {
           )}
         </div>
 
-        {/* Kamers & producten */}
         {lead.rooms && lead.rooms.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Kamers & producten</p>
@@ -187,7 +183,6 @@ export default function Leads() {
           </div>
         )}
 
-        {/* Woningtype & datum */}
         {(woningtype || gewensteDatum) && (
           <div className="grid grid-cols-2 gap-2">
             {woningtype && (
@@ -211,13 +206,11 @@ export default function Leads() {
           </div>
         )}
 
-        {/* Prijs */}
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted">
           <span className="font-semibold">Berekende prijs</span>
           <span className="text-xl font-bold">{formatPrice(lead.advised_price)}</span>
         </div>
 
-        {/* Notities */}
         {cleanNotes && (
           <div className="p-3 rounded-xl border bg-card">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notities</p>
@@ -225,7 +218,6 @@ export default function Leads() {
           </div>
         )}
 
-        {/* Foto's */}
         {photos.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
@@ -246,7 +238,6 @@ export default function Leads() {
           </div>
         )}
 
-        {/* Acties */}
         {lead.status === "nieuw" && (
           <div className="flex gap-3 pt-2">
             <Button className="flex-1" onClick={() => omzettenNaarKlus(lead)}>
@@ -267,6 +258,20 @@ export default function Leads() {
       </div>
     );
   };
+
+  const PanelHeader = ({ lead }: { lead: Lead }) => (
+    <div className="mb-4">
+      <h2 className="text-lg font-semibold flex items-center gap-2 flex-wrap">
+        {lead.name}
+        <Badge variant={statusConfig[lead.status].variant}>
+          {statusConfig[lead.status].label}
+        </Badge>
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Ontvangen op {format(new Date(lead.created_at), "d MMMM yyyy 'om' HH:mm", { locale: nl })}
+      </p>
+    </div>
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -353,7 +358,7 @@ export default function Leads() {
           <Card className="hidden sm:block">
             <CardContent className="p-0">
               <Table>
-                <TableHeader>
+                <thead>
                   <TableRow>
                     <TableHead>Naam</TableHead>
                     <TableHead className="hidden sm:table-cell">Email</TableHead>
@@ -364,85 +369,68 @@ export default function Leads() {
                     <TableHead className="hidden sm:table-cell">Datum</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
+                </thead>
+                <tbody>
                   {filtered.map(lead => (
                     <TableRow key={lead.id} className="cursor-pointer" onClick={() => setSelectedLead(lead)}>
-                      <TableCell className="font-medium">{lead.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">{lead.email || "—"}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">{lead.phone || "—"}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">{lead.city || "—"}</TableCell>
-                      <TableCell>{formatPrice(lead.advised_price)}</TableCell>
-                      <TableCell>
+                      <TableHead className="font-medium">{lead.name}</TableHead>
+                      <TableHead className="hidden sm:table-cell text-muted-foreground">{lead.email || "—"}</TableHead>
+                      <TableHead className="hidden md:table-cell text-muted-foreground">{lead.phone || "—"}</TableHead>
+                      <TableHead className="hidden sm:table-cell text-muted-foreground">{lead.city || "—"}</TableHead>
+                      <TableHead>{formatPrice(lead.advised_price)}</TableHead>
+                      <TableHead>
                         <Badge variant={statusConfig[lead.status].variant}>
                           {statusConfig[lead.status].label}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell text-muted-foreground text-sm">
                         {format(new Date(lead.created_at), "d MMM yyyy", { locale: nl })}
-                      </TableCell>
-                      <TableCell>
+                      </TableHead>
+                      <TableHead>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); setSelectedLead(lead); }}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                      </TableCell>
+                      </TableHead>
                     </TableRow>
                   ))}
-                </TableBody>
+                </tbody>
               </Table>
             </CardContent>
           </Card>
         </>
       )}
 
-      {/* Detail Sheet — bottom sheet on mobile, side panel on desktop */}
-      <Sheet open={!!selectedLead} onOpenChange={open => !open && setSelectedLead(null)}>
-        <SheetContent
-          side="bottom"
-          className="sm:hidden rounded-t-2xl max-h-[92vh] overflow-y-auto px-4 pt-4"
-        >
-          {selectedLead && (
-            <>
-              <div className="w-10 h-1 bg-muted-foreground/20 rounded-full mx-auto mb-4" />
-              <SheetHeader className="text-left mb-4">
-                <SheetTitle className="flex items-center gap-2">
-                  {selectedLead.name}
-                  <Badge variant={statusConfig[selectedLead.status].variant}>
-                    {statusConfig[selectedLead.status].label}
-                  </Badge>
-                </SheetTitle>
-                <SheetDescription>
-                  Ontvangen op {format(new Date(selectedLead.created_at), "d MMMM yyyy 'om' HH:mm", { locale: nl })}
-                </SheetDescription>
-              </SheetHeader>
-              <DetailContent lead={selectedLead} />
-            </>
-          )}
-        </SheetContent>
+      {/* Detail panel — pure div, no overlay */}
+      {selectedLead && (
+        <>
+          {/* Mobile: bottom panel */}
+          <div className="sm:hidden fixed inset-x-0 bottom-0 z-50 rounded-t-2xl max-h-[92vh] overflow-y-auto px-4 pt-4 bg-background border-t shadow-2xl">
+            <div className="w-10 h-1 bg-muted-foreground/20 rounded-full mx-auto mb-4" />
+            <button
+              className="absolute right-4 top-4 p-1 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+              onClick={() => setSelectedLead(null)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Sluiten</span>
+            </button>
+            <PanelHeader lead={selectedLead} />
+            <DetailContent lead={selectedLead} />
+          </div>
 
-        {/* Desktop: side sheet */}
-        <SheetContent
-          side="right"
-          className="hidden sm:flex flex-col w-full max-w-lg overflow-y-auto"
-        >
-          {selectedLead && (
-            <>
-              <SheetHeader className="mb-4">
-                <SheetTitle className="flex items-center gap-2">
-                  {selectedLead.name}
-                  <Badge variant={statusConfig[selectedLead.status].variant}>
-                    {statusConfig[selectedLead.status].label}
-                  </Badge>
-                </SheetTitle>
-                <SheetDescription>
-                  Ontvangen op {format(new Date(selectedLead.created_at), "d MMMM yyyy 'om' HH:mm", { locale: nl })}
-                </SheetDescription>
-              </SheetHeader>
-              <DetailContent lead={selectedLead} />
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+          {/* Desktop: right side panel */}
+          <div className="hidden sm:flex flex-col fixed inset-y-0 right-0 z-50 w-full max-w-lg overflow-y-auto bg-background border-l shadow-2xl p-6">
+            <button
+              className="absolute right-4 top-4 p-1 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+              onClick={() => setSelectedLead(null)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Sluiten</span>
+            </button>
+            <PanelHeader lead={selectedLead} />
+            <DetailContent lead={selectedLead} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
