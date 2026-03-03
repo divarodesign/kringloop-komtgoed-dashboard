@@ -9,7 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar, Image, ChevronRight, Phone, Mail, MapPin, X } from "lucide-react";
+import {
+  Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
+  Image, ChevronRight, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
+} from "lucide-react";
 
 interface LeadRoom {
   id: string;
@@ -30,6 +33,7 @@ interface Lead {
   status: "nieuw" | "omgezet" | "afgewezen";
   job_id: string | null;
   notes: string | null;
+  contacted: boolean;
   created_at: string;
 }
 
@@ -89,7 +93,7 @@ export default function Leads() {
     if (error) {
       toast({ title: "Fout bij laden", description: error.message, variant: "destructive" });
     } else {
-      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [] })));
+      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contacted: l.contacted ?? false })));
     }
     setLoading(false);
   };
@@ -106,6 +110,7 @@ export default function Leads() {
   });
 
   const nieuweCount = leads.filter(l => l.status === "nieuw").length;
+  const nogBellenCount = leads.filter(l => l.status === "nieuw" && !l.contacted).length;
 
   const afwijzen = async (lead: Lead) => {
     const { error } = await supabase.from("leads").update({ status: "afgewezen" }).eq("id", lead.id);
@@ -118,15 +123,62 @@ export default function Leads() {
     }
   };
 
+  const verwijderen = async (lead: Lead) => {
+    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
+    if (error) {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Lead verwijderd" });
+      setSelectedLead(null);
+      fetchLeads();
+    }
+  };
+
+  const toggleContacted = async (lead: Lead) => {
+    const newVal = !lead.contacted;
+    const { error } = await supabase.from("leads").update({ contacted: newVal } as any).eq("id", lead.id);
+    if (error) {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+    } else {
+      const updated = { ...lead, contacted: newVal };
+      setLeads(prev => prev.map(l => l.id === lead.id ? updated : l));
+      setSelectedLead(updated);
+    }
+  };
+
   const omzettenNaarKlus = (lead: Lead) => {
     setSelectedLead(null);
     navigate(`/admin/klussen/nieuw?lead_id=${lead.id}`);
+  };
+
+  const openNavigation = (lead: Lead) => {
+    const addr = [lead.address, lead.postal_code, lead.city].filter(Boolean).join(", ");
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`, "_blank");
   };
 
   const DetailContent = ({ lead }: { lead: Lead }) => {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
     return (
       <div className="space-y-4 pb-6">
+        {/* Gesproken toggle */}
+        <button
+          onClick={() => toggleContacted(lead)}
+          className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
+            lead.contacted
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          {lead.contacted
+            ? <PhoneCall className="h-4 w-4 shrink-0" />
+            : <PhoneMissed className="h-4 w-4 shrink-0" />
+          }
+          <span className="font-medium text-sm">
+            {lead.contacted ? "Gesproken ✓" : "Nog niet gesproken — tik om te markeren"}
+          </span>
+        </button>
+
+        {/* Contact info */}
         <div className="space-y-2">
           {lead.phone && (
             <a href={`tel:${lead.phone}`} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
@@ -151,15 +203,18 @@ export default function Leads() {
             </a>
           )}
           {(lead.address || lead.city) && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+            <button
+              onClick={() => openNavigation(lead)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors text-left"
+            >
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                 <MapPin className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Adres</p>
+                <p className="text-xs text-muted-foreground">Adres — tik voor navigatie</p>
                 <p className="font-medium text-sm">{[lead.address, lead.postal_code, lead.city].filter(Boolean).join(", ")}</p>
               </div>
-            </div>
+            </button>
           )}
         </div>
 
@@ -239,6 +294,7 @@ export default function Leads() {
           </div>
         )}
 
+        {/* Acties */}
         {lead.status === "nieuw" && (
           <div className="flex gap-3 pt-2">
             <Button className="flex-1" onClick={() => omzettenNaarKlus(lead)}>
@@ -256,6 +312,17 @@ export default function Leads() {
             Bekijk klus →
           </Button>
         )}
+
+        {/* Verwijderen */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => verwijderen(lead)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Lead verwijderen
+        </Button>
       </div>
     );
   };
@@ -267,6 +334,11 @@ export default function Leads() {
         <Badge variant={statusConfig[lead.status].variant}>
           {statusConfig[lead.status].label}
         </Badge>
+        {lead.contacted && (
+          <Badge variant="outline" className="text-primary border-primary text-xs">
+            <PhoneCall className="h-3 w-3 mr-1" />Gesproken
+          </Badge>
+        )}
       </h2>
       <p className="text-sm text-muted-foreground">
         Ontvangen op {format(new Date(lead.created_at), "d MMMM yyyy 'om' HH:mm", { locale: nl })}
@@ -281,11 +353,14 @@ export default function Leads() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             Leads
-            {nieuweCount > 0 && (
-              <Badge className="ml-1">{nieuweCount} nieuw</Badge>
-            )}
+            {nieuweCount > 0 && <Badge className="ml-1">{nieuweCount} nieuw</Badge>}
           </h1>
-          <p className="text-sm text-muted-foreground">Aanvragen via de website</p>
+          <p className="text-sm text-muted-foreground">
+            Aanvragen via de website
+            {nogBellenCount > 0 && (
+              <span className="ml-2 text-destructive font-medium">· {nogBellenCount} nog bellen</span>
+            )}
+          </p>
         </div>
       </div>
 
@@ -333,11 +408,16 @@ export default function Leads() {
                 onClick={() => setSelectedLead(lead)}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <span className="font-semibold text-sm">{lead.name}</span>
                     <Badge variant={statusConfig[lead.status].variant} className="text-[10px] px-1.5 py-0">
                       {statusConfig[lead.status].label}
                     </Badge>
+                    {lead.status === "nieuw" && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${lead.contacted ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                        {lead.contacted ? "Gesproken" : "Bellen"}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {lead.city && <span>{lead.city}</span>}
@@ -359,42 +439,54 @@ export default function Leads() {
           <Card className="hidden sm:block">
             <CardContent className="p-0">
               <Table>
-                <thead>
+                <TableHeader>
                   <TableRow>
                     <TableHead>Naam</TableHead>
-                    <TableHead className="hidden sm:table-cell">Email</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead className="hidden md:table-cell">Telefoon</TableHead>
                     <TableHead className="hidden sm:table-cell">Stad</TableHead>
                     <TableHead>Prijs</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Contact</TableHead>
                     <TableHead className="hidden sm:table-cell">Datum</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
-                </thead>
-                <tbody>
+                </TableHeader>
+                <TableBody>
                   {filtered.map(lead => (
                     <TableRow key={lead.id} className="cursor-pointer" onClick={() => setSelectedLead(lead)}>
-                      <TableHead className="font-medium">{lead.name}</TableHead>
-                      <TableHead className="hidden sm:table-cell text-muted-foreground">{lead.email || "—"}</TableHead>
-                      <TableHead className="hidden md:table-cell text-muted-foreground">{lead.phone || "—"}</TableHead>
-                      <TableHead className="hidden sm:table-cell text-muted-foreground">{lead.city || "—"}</TableHead>
-                      <TableHead>{formatPrice(lead.advised_price)}</TableHead>
-                      <TableHead>
+                      <TableCell className="font-medium">{lead.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">{lead.phone || "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">{lead.city || "—"}</TableCell>
+                      <TableCell>{formatPrice(lead.advised_price)}</TableCell>
+                      <TableCell>
                         <Badge variant={statusConfig[lead.status].variant}>
                           {statusConfig[lead.status].label}
                         </Badge>
-                      </TableHead>
-                      <TableHead className="hidden sm:table-cell text-muted-foreground text-sm">
+                      </TableCell>
+                      <TableCell>
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleContacted(lead); }}
+                          title={lead.contacted ? "Markeer als niet gesproken" : "Markeer als gesproken"}
+                        >
+                          {lead.contacted
+                            ? <PhoneCall className="h-4 w-4 text-primary" />
+                            : <PhoneMissed className="h-4 w-4 text-destructive" />
+                          }
+                        </button>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                         {format(new Date(lead.created_at), "d MMM yyyy", { locale: nl })}
-                      </TableHead>
-                      <TableHead>
+                      </TableCell>
+                      <TableCell>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); setSelectedLead(lead); }}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                      </TableHead>
+                      </TableCell>
                     </TableRow>
                   ))}
-                </tbody>
+                </TableBody>
               </Table>
             </CardContent>
           </Card>
