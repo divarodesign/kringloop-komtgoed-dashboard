@@ -10,7 +10,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Eye, ArrowRightCircle, XCircle, Search, Inbox } from "lucide-react";
+import { Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar, Image } from "lucide-react";
+
+// Parse structured data out of the notes field
+function parseNotes(raw: string | null): {
+  cleanNotes: string;
+  woningtype: string | null;
+  gewensteDatum: string | null;
+  photos: string[];
+} {
+  if (!raw) return { cleanNotes: "", woningtype: null, gewensteDatum: null, photos: [] };
+
+  let text = raw;
+  let woningtype: string | null = null;
+  let gewensteDatum: string | null = null;
+  const photos: string[] = [];
+
+  // Extract Woningtype
+  const woningMatch = text.match(/Woningtype:\s*([^\s]+(?:\s+[^\s]+)*?)(?=\s+Gewenste datum:|\s+Foto's:|$)/);
+  if (woningMatch) { woningtype = woningMatch[1].trim(); text = text.replace(woningMatch[0], ""); }
+
+  // Extract Gewenste datum
+  const datumMatch = text.match(/Gewenste datum:\s*(\d{4}-\d{2}-\d{2})/);
+  if (datumMatch) { gewensteDatum = datumMatch[1]; text = text.replace(datumMatch[0], ""); }
+
+  // Extract Foto's
+  const fotosMatch = text.match(/Foto's:\s*([\s\S]*?)(?=$)/);
+  if (fotosMatch) {
+    const urls = fotosMatch[1].match(/https?:\/\/\S+/g) || [];
+    photos.push(...urls);
+    text = text.replace(fotosMatch[0], "");
+  }
+
+  return { cleanNotes: text.trim(), woningtype, gewensteDatum, photos };
+}
 
 interface LeadRoom {
   id: string;
@@ -206,77 +239,127 @@ export default function Leads() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-5 mt-2">
-                {/* Contact */}
-                <Card>
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contactgegevens</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 grid grid-cols-2 gap-2 text-sm">
-                    <div><span className="text-muted-foreground">Email:</span> <span>{selectedLead.email || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Telefoon:</span> <span>{selectedLead.phone || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Adres:</span> <span>{selectedLead.address || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Stad:</span> <span>{selectedLead.city ? `${selectedLead.postal_code ? selectedLead.postal_code + " " : ""}${selectedLead.city}` : "—"}</span></div>
-                  </CardContent>
-                </Card>
+              {(() => {
+                const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(selectedLead.notes);
+                return (
+                  <div className="space-y-5 mt-2">
+                    {/* Contact */}
+                    <Card>
+                      <CardHeader className="pb-2 pt-4 px-4">
+                        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contactgegevens</CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-4 grid grid-cols-2 gap-2 text-sm">
+                        <div><span className="text-muted-foreground">Email:</span> <span>{selectedLead.email || "—"}</span></div>
+                        <div><span className="text-muted-foreground">Telefoon:</span> <span>{selectedLead.phone || "—"}</span></div>
+                        <div><span className="text-muted-foreground">Adres:</span> <span>{selectedLead.address || "—"}</span></div>
+                        <div><span className="text-muted-foreground">Stad:</span> <span>{selectedLead.city ? `${selectedLead.postal_code ? selectedLead.postal_code + " " : ""}${selectedLead.city}` : "—"}</span></div>
+                      </CardContent>
+                    </Card>
 
-                {/* Kamers & producten */}
-                {selectedLead.rooms && selectedLead.rooms.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-2 pt-4 px-4">
-                      <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Kamers & producten</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4 space-y-3">
-                      {selectedLead.rooms.map((room, i) => (
-                        <div key={i}>
-                          <p className="font-medium text-sm mb-1">{room.name}</p>
-                          <div className="space-y-1">
-                            {room.products.map((p, j) => (
-                              <div key={j} className="flex justify-between text-sm text-muted-foreground">
-                                <span>{p.quantity}× {p.description}</span>
-                                <span>{formatPrice(p.quantity * p.unit_price)}</span>
+                    {/* Kamers & producten */}
+                    {selectedLead.rooms && selectedLead.rooms.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2 pt-4 px-4">
+                          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Kamers & producten</CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4 space-y-3">
+                          {selectedLead.rooms.map((room, i) => (
+                            <div key={i}>
+                              <p className="font-medium text-sm mb-1">{room.name}</p>
+                              <div className="space-y-1">
+                                {room.products.map((p, j) => (
+                                  <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                                    <span>{p.quantity}× {p.description}</span>
+                                    <span>{formatPrice(p.quantity * p.unit_price)}</span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Woningtype & gewenste datum */}
+                    {(woningtype || gewensteDatum) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {woningtype && (
+                          <div className="flex items-center gap-2 p-3 rounded-lg border bg-card text-sm">
+                            <Home className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="text-muted-foreground text-xs">Woningtype</p>
+                              <p className="font-medium">{woningtype}</p>
+                            </div>
                           </div>
+                        )}
+                        {gewensteDatum && (
+                          <div className="flex items-center gap-2 p-3 rounded-lg border bg-card text-sm">
+                            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="text-muted-foreground text-xs">Gewenste datum</p>
+                              <p className="font-medium">{format(new Date(gewensteDatum), "d MMMM yyyy", { locale: nl })}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Prijs */}
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
+                      <span className="font-semibold">Berekende prijs</span>
+                      <span className="text-xl font-bold">{formatPrice(selectedLead.advised_price)}</span>
+                    </div>
+
+                    {/* Notities */}
+                    {cleanNotes && (
+                      <div>
+                        <p className="text-sm text-muted-foreground font-medium mb-1">Notities</p>
+                        <p className="text-sm">{cleanNotes}</p>
+                      </div>
+                    )}
+
+                    {/* Foto's */}
+                    {photos.length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                          <Image className="h-4 w-4" />
+                          Foto's ({photos.length})
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {photos.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={url}
+                                alt={`Foto ${i + 1}`}
+                                className="w-full h-28 object-cover rounded-lg border hover:opacity-90 transition-opacity"
+                              />
+                            </a>
+                          ))}
                         </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
+                      </div>
+                    )}
 
-                {/* Prijs */}
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
-                  <span className="font-semibold">Berekende prijs</span>
-                  <span className="text-xl font-bold">{formatPrice(selectedLead.advised_price)}</span>
-                </div>
-
-                {/* Notities */}
-                {selectedLead.notes && (
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium mb-1">Notities</p>
-                    <p className="text-sm">{selectedLead.notes}</p>
+                    {/* Acties */}
+                    {selectedLead.status === "nieuw" && (
+                      <div className="flex gap-3 pt-2">
+                        <Button className="flex-1" onClick={() => omzettenNaarKlus(selectedLead)}>
+                          <ArrowRightCircle className="mr-2 h-4 w-4" />
+                          Omzetten naar klus
+                        </Button>
+                        <Button variant="destructive" onClick={() => afwijzen(selectedLead)}>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Afwijzen
+                        </Button>
+                      </div>
+                    )}
+                    {selectedLead.status === "omgezet" && selectedLead.job_id && (
+                      <Button variant="outline" onClick={() => navigate(`/admin/klussen/${selectedLead.job_id}`)}>
+                        Bekijk klus →
+                      </Button>
+                    )}
                   </div>
-                )}
-
-                {/* Acties */}
-                {selectedLead.status === "nieuw" && (
-                  <div className="flex gap-3 pt-2">
-                    <Button className="flex-1" onClick={() => omzettenNaarKlus(selectedLead)}>
-                      <ArrowRightCircle className="mr-2 h-4 w-4" />
-                      Omzetten naar klus
-                    </Button>
-                    <Button variant="destructive" onClick={() => afwijzen(selectedLead)}>
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Afwijzen
-                    </Button>
-                  </div>
-                )}
-                {selectedLead.status === "omgezet" && selectedLead.job_id && (
-                  <Button variant="outline" onClick={() => navigate(`/admin/klussen/${selectedLead.job_id}`)}>
-                    Bekijk klus →
-                  </Button>
-                )}
-              </div>
+                );
+              })()}
             </>
           )}
         </DialogContent>
