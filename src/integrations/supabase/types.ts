@@ -439,6 +439,7 @@ export type Database = {
           address: string | null
           advised_price: number | null
           city: string | null
+          contacted: boolean
           created_at: string
           email: string | null
           id: string
@@ -455,6 +456,7 @@ export type Database = {
           address?: string | null
           advised_price?: number | null
           city?: string | null
+          contacted?: boolean
           created_at?: string
           email?: string | null
           id?: string
@@ -471,6 +473,7 @@ export type Database = {
           address?: string | null
           advised_price?: number | null
           city?: string | null
+          contacted?: boolean
           created_at?: string
           email?: string | null
           id?: string

@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS contacted boolean NOT NULL DEFAULT false;
