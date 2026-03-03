@@ -1,128 +1,107 @@
 
+## Plan: Leads systeem (admin) + voorbereiding marketing website
 
-# Klus Workflow Uitbreiding: Inplannen, Toewijzen, Opleveren, PDF & Agenda
+### Wat er gebouwd wordt
 
-## Samenvatting
-Na het versturen van een offerte ontbreken er nu actieknoppen op de klus-detailpagina. Dit plan voegt vier grote onderdelen toe:
-1. **Workflow-actieknoppen** op de klus-detailpagina (inplannen, medewerker toewijzen)
-2. **Opleveringsproces** met foto-uploads per kamer
-3. **PDF-generatie** van het opleveringsdocument met bedrijfsbranding, permanent opgeslagen in Supabase Storage
-4. **Agenda-integratie** -- toegewezen medewerker tonen op agenda-items
-
----
-
-## 1. Workflow-actieknoppen op KlusDetail
-
-Op de klus-detailpagina komen contextafhankelijke actieknoppen, afhankelijk van de huidige status:
-
-| Status | Actie | Wat er gebeurt |
-|--------|-------|----------------|
-| `offerte_verstuurd` | **Inplannen** | Opent formulier voor datum, tijd en medewerker. Slaat op en zet status naar `in_uitvoering`. |
-| `in_uitvoering` | **Oplevering starten** | Maakt een `delivery` record aan (status "concept"), zet jobstatus naar `oplevering`. |
-| `oplevering` | Opleveringssectie zichtbaar | Foto-upload per kamer + knop "Oplevering voltooien". |
-
-### Inplan-formulier
-- Datumpicker (bestaande Calendar component)
-- Tijdveld (tekst input)
-- Medewerker-dropdown (uit profiles tabel)
-- Opslaan knop die `scheduled_date`, `scheduled_time` en `assigned_to` op de job updatet
+**In dit admin project:**
+1. `leads` tabel in de database (migratie)
+2. Leads overzichtspagina in admin
+3. "Omzetten naar klus" functionaliteit (navigeert naar NieuweKlus met lead data)
+4. NieuweKlus uitbreiden om `lead_id` parameter te lezen en data voor te vullen
+5. Sidebar entry "Leads" toevoegen
 
 ---
 
-## 2. Opleveringsproces
+### Database migratie
 
-### Hoe het werkt
-- Per kamer (afgeleid uit de `job_items` groepering op `room_name`) moet minimaal 1 foto worden geupload.
-- Foto's worden geupload naar de bestaande `delivery-photos` storage bucket.
-- Referenties worden opgeslagen in de `delivery_photos` tabel.
-- Zolang niet alle kamers een foto hebben, is de knop "Oplevering voltooien" uitgeschakeld.
-- Bij voltooien: PDF wordt gegenereerd, delivery status wordt `afgerond`, job status wordt `gefactureerd`.
+Nieuwe `leads` tabel:
+```sql
+CREATE TABLE public.leads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  email text,
+  phone text,
+  address text,
+  city text,
+  postal_code text,
+  rooms jsonb DEFAULT '[]'::jsonb,  -- zelfde structuur als NieuweKlus rooms
+  advised_price numeric DEFAULT 0,
+  status text NOT NULL DEFAULT 'nieuw',  -- nieuw | omgezet | afgewezen
+  job_id uuid,                           -- gevuld na omzetten
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-### UI op de klus-detailpagina
-Een nieuwe Card "Oplevering" verschijnt wanneer een delivery record bestaat:
-- Per kamer een sectie met kamernaam als header
-- Upload-knop voor foto's per kamer
-- Thumbnail-preview van geuploadde foto's met verwijder-optie
-- Onderaan: knop "Oplevering voltooien" (disabled totdat elke kamer minimaal 1 foto heeft)
-- Na voltooiing: knop "PDF downloaden" om het opgeslagen document te openen
+-- RLS: publiek INSERT (voor marketing website), alleen authenticated SELECT/UPDATE
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 
----
+CREATE POLICY "Publiek kan leads aanmaken"
+  ON public.leads FOR INSERT TO anon WITH CHECK (true);
 
-## 3. PDF-generatie (Edge Function)
-
-Een nieuwe Edge Function `generate-delivery-pdf` genereert het opleveringsdocument.
-
-### PDF Structuur
-
-**Pagina 1: Overzicht**
-- Bedrijfslogo en bedrijfsgegevens (uit `settings` tabel, key `company_info`)
-- Klantgegevens (naam, adres, contactgegevens)
-- Klusnaam en uitvoeringsdatum
-- Per kamer: lijst van uitgevoerde werkzaamheden (alleen beschrijvingen, geen prijzen)
-
-**Volgende pagina's: Foto's**
-- 1 foto per pagina
-- Kamernaam als bijschrift bovenaan elke pagina
-- Foto groot gecentreerd op de pagina
-
-### Opslag
-- PDF wordt geupload naar een nieuwe storage bucket `delivery-pdfs` (public)
-- De publieke URL wordt opgeslagen in het nieuwe `pdf_url` veld op de `deliveries` tabel
-- De PDF blijft permanent beschikbaar en kan altijd worden bekeken of gedownload
+CREATE POLICY "Authenticated kan leads beheren"
+  ON public.leads FOR ALL TO authenticated USING (true) WITH CHECK (true);
+```
 
 ---
 
-## 4. Agenda-integratie
+### Nieuwe pagina: `src/pages/admin/Leads.tsx`
 
-De agenda toont nu al klussen met een ingeplande datum. De uitbreiding:
-- Bij het opbouwen van agenda-items worden de `profiles` opgehaald
-- De naam van de toegewezen medewerker wordt getoond op de agenda-kaart (onder de klantnaam)
-- Zichtbaar als een klein label, bijv. "Medewerker: Jan de Vries"
-
----
-
-## 5. Opleveringen overzichtspagina
-
-De bestaande Opleveringen pagina wordt uitgebreid:
-- Rijen zijn klikbaar en navigeren naar de klus-detailpagina
-- Bij afgeronde opleveringen verschijnt een PDF download-knop
+- Tabel met alle leads (naam, email, telefoon, stad, prijs, status, datum)
+- Filter op status (nieuw / omgezet / afgewezen)
+- Per rij: knop "Bekijken" → opent detail dialog
+  - Detail toont: contactgegevens, kamers + producten, berekende prijs
+  - Knop "Omzetten naar klus" → navigeert naar `/admin/klussen/nieuw?lead_id=xxx`
+  - Knop "Afwijzen" → zet status op 'afgewezen'
+- Badge teller "nieuw" zichtbaar in sidebar
 
 ---
 
-## Technische Details
+### NieuweKlus aanpassen
 
-### Database wijzigingen
-1. **`deliveries` tabel**: nieuw veld `pdf_url` (text, nullable)
-2. **Nieuwe storage bucket**: `delivery-pdfs` (public) -- aangemaakt via SQL migratie
+In `useEffect` bij mount: als `searchParams.get("lead_id")` bestaat:
+- Haal lead op uit Supabase
+- Vul voor: naam/email/telefoon/adres (nieuwe klant formulier)
+- Vul rooms voor (met producten)
+- Sla `advised_price` over als startwaarde
 
-### Nieuwe Edge Function: `generate-delivery-pdf`
-- Ontvangt `delivery_id` als parameter
-- Gebruikt Supabase service role key om data op te halen
-- Haalt op: delivery, job, klant, job_items (gegroepeerd per room_name), delivery_photos, company_info setting
-- Genereert PDF met `jsPDF` library (beschikbaar via CDN import in Deno)
-- Laadt bedrijfslogo als base64 vanuit `company-assets` bucket (indien aanwezig)
-- Uploadt PDF naar `delivery-pdfs` bucket
-- Slaat `pdf_url` op in delivery record
-- Retourneert de publieke URL
-- Config: `verify_jwt = false` in `supabase/config.toml`
+Na succesvol aanmaken van de klus: update `leads` record met `status: 'omgezet'` en `job_id: newJobId`
 
-### Bestanden die worden aangepast
+---
+
+### Sidebar & routing
+
+- `AdminSidebar.tsx`: "Leads" toevoegen met `Inbox` icon, tussen Klussen en Agenda
+- `AdminLayout.tsx`: bottom nav bijwerken
+- `App.tsx`: route `/admin/leads` toevoegen
+
+---
+
+### Bestanden die worden aangepast/aangemaakt
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `src/pages/admin/KlusDetail.tsx` | Workflow-actieknoppen, inplan-formulier, opleveringssectie met foto-uploads en PDF download |
-| `src/pages/admin/Agenda.tsx` | Profiles ophalen, medewerker-naam tonen op agenda-items |
-| `src/pages/admin/Opleveringen.tsx` | Klikbaar naar klus, PDF download-knop |
-| `src/types/database.ts` | `pdf_url` veld toevoegen aan Delivery type |
-| `supabase/functions/generate-delivery-pdf/index.ts` | Nieuwe edge function (nieuw bestand) |
-| `supabase/config.toml` | Config voor nieuwe edge function |
-| Database migratie | `pdf_url` kolom + `delivery-pdfs` bucket |
+| Database migratie | `leads` tabel + RLS |
+| `src/pages/admin/Leads.tsx` | Nieuw — overzicht + detail dialog |
+| `src/pages/admin/NieuweKlus.tsx` | lead_id param lezen, data prefill, lead markeren als omgezet |
+| `src/components/AdminSidebar.tsx` | "Leads" menu item toevoegen |
+| `src/components/AdminLayout.tsx` | "Leads" in bottom nav |
+| `src/App.tsx` | Route toevoegen |
+| `src/types/database.ts` | `Lead` type toevoegen |
 
-### Volgorde van implementatie
-1. Database migratie (kolom + bucket)
-2. Type-update in `database.ts`
-3. Edge function `generate-delivery-pdf`
-4. KlusDetail uitbreiden (workflow knoppen, inplannen, oplevering)
-5. Agenda uitbreiden (medewerker tonen)
-6. Opleveringen pagina uitbreiden
+---
 
+### Marketing website (apart project)
+
+Na dit plan heb je alles klaar om een apart Lovable project te starten dat:
+- Dezelfde Supabase URL + anon key gebruikt
+- `products` en `product_categories` leest (publiek SELECT al toegestaan via huidige RLS? Nee — huidige policies zijn "authenticated only". We voegen ook publieke SELECT toe aan products/categories in deze migratie)
+- Leads insert (al geregeld met bovenstaande RLS)
+
+In de migratie voegen we ook toe:
+```sql
+-- Publiek kan producten en categorieën lezen (voor marketing website)
+CREATE POLICY "Publiek kan producten lezen" ON public.products FOR SELECT TO anon USING (is_active = true);
+CREATE POLICY "Publiek kan categorieën lezen" ON public.product_categories FOR SELECT TO anon USING (true);
+CREATE POLICY "Publiek kan category links lezen" ON public.product_category_links FOR SELECT TO anon USING (true);
+```
