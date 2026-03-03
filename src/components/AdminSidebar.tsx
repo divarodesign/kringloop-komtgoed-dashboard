@@ -29,34 +29,34 @@ export function AdminSidebar() {
   return (
     <Sidebar className="sm:w-64 w-full">
 
-      <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Recycle className="h-5 w-5" />
+      <SidebarHeader className="p-5 border-b border-sidebar-border">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Recycle className="h-7 w-7" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-sidebar-foreground">Kringloop</span>
-            <span className="text-xs text-muted-foreground">Komtgoed</span>
+            <span className="text-lg font-bold text-sidebar-foreground">Kringloop</span>
+            <span className="text-sm text-muted-foreground">Komtgoed</span>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sm font-semibold uppercase tracking-wider px-4 py-3">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1 px-2">
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild size="lg" className="h-14">
                     <NavLink
                       to={item.url}
                       end={item.url === "/admin"}
-                      className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="hover:bg-sidebar-accent flex items-center gap-4 px-4 rounded-xl"
+                      activeClassName="bg-sidebar-accent text-primary font-semibold"
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="h-6 w-6 shrink-0" />
+                      <span className="text-base">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -66,9 +66,9 @@ export function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3 border-t border-sidebar-border">
-        <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive" onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" /> Uitloggen
+      <SidebarFooter className="p-4 border-t border-sidebar-border">
+        <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive h-14 text-base gap-4 px-4" onClick={signOut}>
+          <LogOut className="h-6 w-6" /> Uitloggen
         </Button>
       </SidebarFooter>
     </Sidebar>
