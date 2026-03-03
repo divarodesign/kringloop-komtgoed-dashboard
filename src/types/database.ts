@@ -168,5 +168,22 @@ export interface Setting {
   updated_at: string;
 }
 
+export interface Lead {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  postal_code: string | null;
+  rooms: any[];
+  advised_price: number;
+  status: 'nieuw' | 'omgezet' | 'afgewezen';
+  job_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type JobStatus = 'concept' | 'nieuw' | 'offerte_verstuurd' | 'in_uitvoering' | 'oplevering' | 'gefactureerd' | 'afgerond';
 export type JobType = 'producten' | 'ontruiming';

@@ -112,6 +112,7 @@ const NieuweKlus = () => {
   const [companyAddress, setCompanyAddress] = useState("");
   const [housingType, setHousingType] = useState("");
   const [conceptJobId, setConceptJobId] = useState<string | null>(null);
+  const [leadId, setLeadId] = useState<string | null>(null);
   const [savingConcept, setSavingConcept] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -320,6 +321,61 @@ const NieuweKlus = () => {
     loadConcept();
   }, [searchParams]);
 
+  // Load lead data if ?lead_id= is provided
+  useEffect(() => {
+    const lid = searchParams.get("lead_id");
+    if (!lid) return;
+    setLeadId(lid);
+    const loadLead = async () => {
+      const { data: lead } = await supabase.from("leads").select("*").eq("id", lid).single();
+      if (!lead) return;
+      // Prefill customer form (new customer)
+      setNewCustomer(true);
+      setCustomerForm({
+        name: lead.name || "",
+        email: lead.email || "",
+        phone: lead.phone || "",
+        address: lead.address || "",
+        city: lead.city || "",
+        postal_code: lead.postal_code || "",
+      });
+      // Prefill work address
+      if (lead.address || lead.city) {
+        setWorkAddress(lead.address || "");
+        setWorkCity(lead.city || "");
+        setWorkPostalCode(lead.postal_code || "");
+      }
+      // Prefill job type
+      setJobType("ontruiming");
+      // Prefill rooms from lead
+      const leadRooms = Array.isArray(lead.rooms) ? lead.rooms : [];
+      if (leadRooms.length > 0) {
+        const loadedRooms: Room[] = leadRooms.map((r: any) => ({
+          id: crypto.randomUUID(),
+          name: r.name || "Kamer",
+          products: (r.products || []).map((p: any) => ({
+            product_id: p.product_id || null,
+            description: p.description || "",
+            quantity: p.quantity || 1,
+            unit_price: p.unit_price || 0,
+          })),
+          photos: [],
+          expanded: true,
+          browsing: false,
+          activeCategoryId: null,
+          productSearch: "",
+        }));
+        setRooms(loadedRooms);
+      }
+      // Set advised price
+      if (lead.advised_price) {
+        setAdvisedPrice(Number(lead.advised_price));
+      }
+      setTitle(`Ontruiming ${lead.name}`);
+    };
+    loadLead();
+  }, [searchParams]);
+
   // Save as concept
   const saveConcept = useCallback(async () => {
     if (!customerId && !newCustomer) {
@@ -481,7 +537,11 @@ const NieuweKlus = () => {
         toast({ title: "Klus aangemaakt, maar offerte versturen mislukt", description: e.message, variant: "destructive" });
       }
     } else {
-      toast({ title: "Klus aangemaakt!" });
+    toast({ title: "Klus aangemaakt!" });
+    }
+    // Mark lead as converted if applicable
+    if (leadId) {
+      await supabase.from("leads").update({ status: "omgezet", job_id: job.id }).eq("id", leadId);
     }
     navigate("/admin/klussen");
     } finally {
