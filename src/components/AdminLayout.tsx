@@ -1,11 +1,12 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Recycle, Users, Wrench, CalendarDays, Receipt } from "lucide-react";
+import { Recycle, Users, Wrench, CalendarDays, Receipt, Inbox } from "lucide-react";
 
 const bottomNavItems = [
   { label: "Klanten", icon: Users, path: "/admin/klanten" },
   { label: "Klussen", icon: Wrench, path: "/admin/klussen" },
+  { label: "Leads", icon: Inbox, path: "/admin/leads" },
   { label: "Agenda", icon: CalendarDays, path: "/admin/agenda" },
   { label: "Financieel", icon: Receipt, path: "/admin/financieel" },
 ];
