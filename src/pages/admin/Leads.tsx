@@ -77,6 +77,7 @@ export default function Leads() {
   const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen">("all");
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -226,13 +227,13 @@ export default function Leads() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {photos.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                <button key={i} onClick={() => setLightboxUrl(url)} className="block">
                   <img
                     src={url}
                     alt={`Foto ${i + 1}`}
                     className="w-full h-32 object-cover rounded-xl border hover:opacity-90 transition-opacity"
                   />
-                </a>
+                </button>
               ))}
             </div>
           </div>
@@ -430,6 +431,27 @@ export default function Leads() {
             <DetailContent lead={selectedLead} />
           </div>
         </>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute right-4 top-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Foto vergroot"
+            className="max-w-full max-h-full rounded-xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );
