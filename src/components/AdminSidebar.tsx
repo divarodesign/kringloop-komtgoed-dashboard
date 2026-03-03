@@ -27,8 +27,7 @@ export function AdminSidebar() {
   const { signOut } = useAuth();
 
   return (
-    <Sidebar className="sm:w-64 w-full">
-
+    <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
