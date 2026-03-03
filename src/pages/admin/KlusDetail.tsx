@@ -338,7 +338,7 @@ const KlusDetail = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", id!);
+      await supabase.from("jobs").update({ status: "in_uitvoering" }).eq("id", id!);
 
       toast({ title: "Oplevering voltooid! PDF is gegenereerd." });
       fetchJob();
