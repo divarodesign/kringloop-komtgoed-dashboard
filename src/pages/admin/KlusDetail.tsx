@@ -612,7 +612,7 @@ const KlusDetail = () => {
               <CalendarIcon className="h-4 w-4" /> Inplannen
             </Button>
           )}
-          {job.status === "in_uitvoering" && !delivery && (
+          {(job.status === "in_uitvoering" || (job.is_direct && !["oplevering", "gefactureerd", "afgerond"].includes(job.status))) && !delivery && (
             <Button onClick={startDelivery} className="gap-1.5">
               <ClipboardCheck className="h-4 w-4" /> Oplevering starten
             </Button>
