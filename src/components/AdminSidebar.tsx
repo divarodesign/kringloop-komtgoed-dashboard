@@ -35,10 +35,17 @@ export function AdminSidebar() {
       const { count } = await supabase
         .from("leads")
         .select("*", { count: "exact", head: true })
-        .eq("status", "nieuw");
+        .eq("contacted", false);
       setNieuwLeadsCount(count || 0);
     };
     fetchCount();
+
+    const channel = supabase
+      .channel("leads-badge")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, fetchCount)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (
