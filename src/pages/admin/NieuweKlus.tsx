@@ -124,7 +124,8 @@ const NieuweKlus = () => {
       supabase.from("settings").select("*").eq("key", "company_info").single(),
       supabase.from("product_categories").select("*").order("name"),
       supabase.from("product_category_links").select("product_id, category_id"),
-    ]).then(([{ data: c }, { data: p }, { data: ci }, { data: cats }, { data: links }]) => {
+      supabase.from("settings").select("*").eq("key", "travel_costs").single(),
+    ]).then(([{ data: c }, { data: p }, { data: ci }, { data: cats }, { data: links }, { data: tc }]) => {
       setCustomers((c as Customer[]) || []);
       setProducts((p as Product[]) || []);
       setCategories((cats as ProductCategory[]) || []);
