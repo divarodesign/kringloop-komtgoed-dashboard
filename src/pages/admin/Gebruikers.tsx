@@ -36,15 +36,19 @@ const Gebruikers = () => {
   const getRole = (userId: string) => roles.find((r) => r.user_id === userId)?.role || "medewerker";
 
   const handleInvite = async () => {
-    if (!formData.full_name.trim() || !formData.email.trim()) {
-      toast({ title: "Vul naam en e-mail in", variant: "destructive" });
+    if (!formData.full_name.trim() || !formData.email.trim() || !formData.password.trim()) {
+      toast({ title: "Vul naam, e-mail en wachtwoord in", variant: "destructive" });
+      return;
+    }
+    if (formData.password.length < 6) {
+      toast({ title: "Wachtwoord moet minimaal 6 tekens zijn", variant: "destructive" });
       return;
     }
     setInviting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("invite-user", {
-        body: { email: formData.email, full_name: formData.full_name, role: formData.role },
+        body: { email: formData.email, full_name: formData.full_name, role: formData.role, password: formData.password },
       });
 
       if (res.error || res.data?.error) {
