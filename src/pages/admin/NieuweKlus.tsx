@@ -18,11 +18,8 @@ import type { Customer, Product, ProductCategory } from "@/types/database";
 
 const STEPS = ["Klant", "Type", "Producten", "Kosten", "Planning", "Overzicht"];
 
-const calcTravelCost = (km: number) => {
-  if (km <= 75) return 89;
-  if (km <= 150) return 115;
-  return 145;
-};
+// Fixed travel cost - loaded from settings, default 89
+let defaultTravelFixedPrice = 89;
 
 const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
 
