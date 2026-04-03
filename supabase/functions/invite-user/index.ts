@@ -52,7 +52,38 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, full_name, role, password } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    // Update profile name action
+    if (action === "update_profile") {
+      const { user_id, full_name } = body;
+      if (!user_id || !full_name) {
+        return new Response(JSON.stringify({ error: "user_id en full_name zijn verplicht" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error: updateError } = await adminClient
+        .from("profiles")
+        .update({ full_name })
+        .eq("user_id", user_id);
+      if (updateError) {
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Also update auth user metadata
+      await adminClient.auth.admin.updateUserById(user_id, {
+        user_metadata: { full_name },
+      });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { email, full_name, role, password } = body;
 
     if (!email || !full_name || !password) {
       return new Response(JSON.stringify({ error: "E-mail, naam en wachtwoord zijn verplicht" }), {
