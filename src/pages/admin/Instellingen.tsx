@@ -12,7 +12,7 @@ import type { Setting } from "@/types/database";
 const Instellingen = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [travelCosts, setTravelCosts] = useState({ zone_1_max_km: 75, zone_1_price: 89, zone_2_max_km: 150, zone_2_price: 115, zone_3_price: 145 });
+  const [travelCosts, setTravelCosts] = useState({ fixed_price: 89 });
   const [companyInfo, setCompanyInfo] = useState({ name: "Kringloop Komtgoed", address: "", city: "", postal_code: "", phone: "", email: "", kvk: "", btw: "", logo_url: "" });
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
