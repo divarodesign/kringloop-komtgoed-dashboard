@@ -57,7 +57,7 @@ const Gebruikers = () => {
 
       toast({ title: "Gebruiker aangemaakt", description: `${formData.full_name} is toegevoegd.` });
       setDialogOpen(false);
-      setFormData({ full_name: "", email: "", role: "medewerker" });
+      setFormData({ full_name: "", email: "", password: "", role: "medewerker" });
       fetchData();
     } catch (err: any) {
       toast({ title: "Fout bij aanmaken", description: err.message, variant: "destructive" });
