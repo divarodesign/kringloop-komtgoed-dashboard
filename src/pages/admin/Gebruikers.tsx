@@ -161,6 +161,16 @@ const Gebruikers = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="password">Wachtwoord</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Minimaal 6 tekens"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Rol</Label>
               <Select value={formData.role} onValueChange={(v) => setFormData(prev => ({ ...prev, role: v }))}>
                 <SelectTrigger>
