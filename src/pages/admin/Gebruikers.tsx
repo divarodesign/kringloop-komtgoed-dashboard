@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Shield, ShieldCheck, User } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Shield, ShieldCheck, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Profile, UserRole } from "@/types/database";
 
@@ -14,6 +17,8 @@ const Gebruikers = () => {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [formData, setFormData] = useState({ full_name: "", email: "", role: "medewerker" });
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -29,6 +34,33 @@ const Gebruikers = () => {
   useEffect(() => { fetchData(); }, []);
 
   const getRole = (userId: string) => roles.find((r) => r.user_id === userId)?.role || "medewerker";
+
+  const handleInvite = async () => {
+    if (!formData.full_name.trim() || !formData.email.trim()) {
+      toast({ title: "Vul naam en e-mail in", variant: "destructive" });
+      return;
+    }
+    setInviting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("invite-user", {
+        body: { email: formData.email, full_name: formData.full_name, role: formData.role },
+      });
+
+      if (res.error || res.data?.error) {
+        throw new Error(res.data?.error || res.error?.message || "Onbekende fout");
+      }
+
+      toast({ title: "Gebruiker aangemaakt", description: `${formData.full_name} is toegevoegd.` });
+      setDialogOpen(false);
+      setFormData({ full_name: "", email: "", role: "medewerker" });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Fout bij aanmaken", description: err.message, variant: "destructive" });
+    } finally {
+      setInviting(false);
+    }
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-8">
@@ -104,11 +136,48 @@ const Gebruikers = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Medewerker toevoegen</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">Om een nieuwe medewerker toe te voegen, maak een gebruiker aan in het Supabase Dashboard onder Authentication → Users. De gebruiker verschijnt automatisch hier.</p>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Naam</Label>
+              <Input
+                id="full_name"
+                placeholder="Volledige naam"
+                value={formData.full_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="naam@voorbeeld.nl"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Rol</Label>
+              <Select value={formData.role} onValueChange={(v) => setFormData(prev => ({ ...prev, role: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medewerker">Medewerker</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              De gebruiker krijgt een tijdelijk wachtwoord. Bij eerste login kan het wachtwoord gereset worden via "Wachtwoord vergeten".
+            </p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Sluiten</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Annuleren</Button>
+            <Button onClick={handleInvite} disabled={inviting} className="w-full sm:w-auto">
+              {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Toevoegen
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
