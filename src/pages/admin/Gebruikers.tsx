@@ -18,7 +18,7 @@ const Gebruikers = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [formData, setFormData] = useState({ full_name: "", email: "", role: "medewerker" });
+  const [formData, setFormData] = useState({ full_name: "", email: "", password: "", role: "medewerker" });
   const { toast } = useToast();
 
   const fetchData = async () => {
