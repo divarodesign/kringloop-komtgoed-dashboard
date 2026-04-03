@@ -18,11 +18,8 @@ import type { Customer, Product, ProductCategory } from "@/types/database";
 
 const STEPS = ["Klant", "Type", "Producten", "Kosten", "Planning", "Overzicht"];
 
-const calcTravelCost = (km: number) => {
-  if (km <= 75) return 89;
-  if (km <= 150) return 115;
-  return 145;
-};
+// Fixed travel cost - loaded from settings, default 89
+let defaultTravelFixedPrice = 89;
 
 const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
 
@@ -115,6 +112,7 @@ const NieuweKlus = () => {
   const [leadId, setLeadId] = useState<string | null>(null);
   const [savingConcept, setSavingConcept] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [travelFixedPrice, setTravelFixedPrice] = useState(defaultTravelFixedPrice);
 
   // Category-product links
   const [categoryLinks, setCategoryLinks] = useState<{ product_id: string; category_id: string }[]>([]);
@@ -126,7 +124,8 @@ const NieuweKlus = () => {
       supabase.from("settings").select("*").eq("key", "company_info").single(),
       supabase.from("product_categories").select("*").order("name"),
       supabase.from("product_category_links").select("product_id, category_id"),
-    ]).then(([{ data: c }, { data: p }, { data: ci }, { data: cats }, { data: links }]) => {
+      supabase.from("settings").select("*").eq("key", "travel_costs").single(),
+    ]).then(([{ data: c }, { data: p }, { data: ci }, { data: cats }, { data: links }, { data: tc }]) => {
       setCustomers((c as Customer[]) || []);
       setProducts((p as Product[]) || []);
       setCategories((cats as ProductCategory[]) || []);
@@ -135,6 +134,10 @@ const NieuweKlus = () => {
         const info = ci.value as any;
         const addr = [info.address, info.postal_code, info.city].filter(Boolean).join(", ");
         setCompanyAddress(addr);
+      }
+      if (tc) {
+        const tcVal = tc.value as any;
+        if (tcVal.fixed_price != null) setTravelFixedPrice(tcVal.fixed_price);
       }
       setLoading(false);
 
@@ -392,7 +395,7 @@ const NieuweKlus = () => {
         setCustomerId(cid);
         setNewCustomer(false);
       }
-      const tc = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
+      const tc = travelKm ? travelFixedPrice : 0;
       const ec = parseFloat(extraCosts) || 0;
       const jobData = {
         customer_id: cid, title: title || "Concept klus", description: description || null, job_type: jobType, housing_type: housingType || null, status: "concept" as const,
@@ -436,9 +439,9 @@ const NieuweKlus = () => {
       toast({ title: "Fout bij opslaan", description: e.message, variant: "destructive" });
     }
     setSavingConcept(false);
-  }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
+  }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, travelFixedPrice, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
 
-  const travelCost = travelKm ? calcTravelCost(parseInt(travelKm)) : 0;
+  const travelCost = travelKm ? travelFixedPrice : 0;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
   const subtotal = jobType === "ontruiming" ? (parseFloat(customPrice) || advisedPrice) : productsTotal;
   const extra = parseFloat(extraCosts) || 0;

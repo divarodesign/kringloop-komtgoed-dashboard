@@ -12,7 +12,7 @@ import type { Setting } from "@/types/database";
 const Instellingen = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [travelCosts, setTravelCosts] = useState({ zone_1_max_km: 75, zone_1_price: 89, zone_2_max_km: 150, zone_2_price: 115, zone_3_price: 145 });
+  const [travelCosts, setTravelCosts] = useState({ fixed_price: 89 });
   const [companyInfo, setCompanyInfo] = useState({ name: "Kringloop Komtgoed", address: "", city: "", postal_code: "", phone: "", email: "", kvk: "", btw: "", logo_url: "" });
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -65,18 +65,7 @@ const Instellingen = () => {
           <CardDescription className="text-xs">Configureer de tariefzones</CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5"><Label className="text-xs">Zone 1 max km</Label><Input type="number" value={travelCosts.zone_1_max_km} onChange={(e) => setTravelCosts({ ...travelCosts, zone_1_max_km: parseInt(e.target.value) || 0 })} /></div>
-            <div className="grid gap-1.5"><Label className="text-xs">Zone 1 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_1_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_1_price: parseFloat(e.target.value) || 0 })} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5"><Label className="text-xs">Zone 2 max km</Label><Input type="number" value={travelCosts.zone_2_max_km} onChange={(e) => setTravelCosts({ ...travelCosts, zone_2_max_km: parseInt(e.target.value) || 0 })} /></div>
-            <div className="grid gap-1.5"><Label className="text-xs">Zone 2 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_2_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_2_price: parseFloat(e.target.value) || 0 })} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div></div>
-            <div className="grid gap-1.5"><Label className="text-xs">Zone 3 prijs (€)</Label><Input type="number" step="0.01" value={travelCosts.zone_3_price} onChange={(e) => setTravelCosts({ ...travelCosts, zone_3_price: parseFloat(e.target.value) || 0 })} /></div>
-          </div>
+          <div className="grid gap-1.5 max-w-xs"><Label className="text-xs">Vast tarief (€)</Label><Input type="number" step="0.01" value={travelCosts.fixed_price} onChange={(e) => setTravelCosts({ ...travelCosts, fixed_price: parseFloat(e.target.value) || 0 })} /></div>
           <Button size="sm" onClick={saveTravelCosts} className="w-full sm:w-auto">Opslaan</Button>
         </CardContent>
       </Card>
