@@ -112,6 +112,7 @@ const NieuweKlus = () => {
   const [leadId, setLeadId] = useState<string | null>(null);
   const [savingConcept, setSavingConcept] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [travelFixedPrice, setTravelFixedPrice] = useState(defaultTravelFixedPrice);
 
   // Category-product links
   const [categoryLinks, setCategoryLinks] = useState<{ product_id: string; category_id: string }[]>([]);
