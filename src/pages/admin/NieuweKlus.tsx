@@ -439,7 +439,7 @@ const NieuweKlus = () => {
       toast({ title: "Fout bij opslaan", description: e.message, variant: "destructive" });
     }
     setSavingConcept(false);
-  }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
+  }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, travelFixedPrice, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
 
   const travelCost = travelKm ? travelFixedPrice : 0;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
