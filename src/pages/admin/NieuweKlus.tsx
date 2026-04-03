@@ -135,6 +135,10 @@ const NieuweKlus = () => {
         const addr = [info.address, info.postal_code, info.city].filter(Boolean).join(", ");
         setCompanyAddress(addr);
       }
+      if (tc) {
+        const tcVal = tc.value as any;
+        if (tcVal.fixed_price != null) setTravelFixedPrice(tcVal.fixed_price);
+      }
       setLoading(false);
 
       // Pre-fill from URL params (e.g. when converting from appointment)
