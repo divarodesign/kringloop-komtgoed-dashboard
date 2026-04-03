@@ -52,20 +52,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, full_name, role } = await req.json();
+    const { email, full_name, role, password } = await req.json();
 
-    if (!email || !full_name) {
-      return new Response(JSON.stringify({ error: "E-mail en naam zijn verplicht" }), {
+    if (!email || !full_name || !password) {
+      return new Response(JSON.stringify({ error: "E-mail, naam en wachtwoord zijn verplicht" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Create the user with a random password (they'll reset via email)
-    const tempPassword = crypto.randomUUID() + "Aa1!";
+    // Create the user with the provided password
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
-      password: tempPassword,
+      password,
       email_confirm: true,
       user_metadata: { full_name },
     });

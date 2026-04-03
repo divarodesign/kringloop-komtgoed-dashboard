@@ -18,7 +18,7 @@ const Gebruikers = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [formData, setFormData] = useState({ full_name: "", email: "", role: "medewerker" });
+  const [formData, setFormData] = useState({ full_name: "", email: "", password: "", role: "medewerker" });
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -36,15 +36,19 @@ const Gebruikers = () => {
   const getRole = (userId: string) => roles.find((r) => r.user_id === userId)?.role || "medewerker";
 
   const handleInvite = async () => {
-    if (!formData.full_name.trim() || !formData.email.trim()) {
-      toast({ title: "Vul naam en e-mail in", variant: "destructive" });
+    if (!formData.full_name.trim() || !formData.email.trim() || !formData.password.trim()) {
+      toast({ title: "Vul naam, e-mail en wachtwoord in", variant: "destructive" });
+      return;
+    }
+    if (formData.password.length < 6) {
+      toast({ title: "Wachtwoord moet minimaal 6 tekens zijn", variant: "destructive" });
       return;
     }
     setInviting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("invite-user", {
-        body: { email: formData.email, full_name: formData.full_name, role: formData.role },
+        body: { email: formData.email, full_name: formData.full_name, role: formData.role, password: formData.password },
       });
 
       if (res.error || res.data?.error) {
@@ -53,7 +57,7 @@ const Gebruikers = () => {
 
       toast({ title: "Gebruiker aangemaakt", description: `${formData.full_name} is toegevoegd.` });
       setDialogOpen(false);
-      setFormData({ full_name: "", email: "", role: "medewerker" });
+      setFormData({ full_name: "", email: "", password: "", role: "medewerker" });
       fetchData();
     } catch (err: any) {
       toast({ title: "Fout bij aanmaken", description: err.message, variant: "destructive" });
@@ -154,6 +158,16 @@ const Gebruikers = () => {
                 placeholder="naam@voorbeeld.nl"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Wachtwoord</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Minimaal 6 tekens"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
