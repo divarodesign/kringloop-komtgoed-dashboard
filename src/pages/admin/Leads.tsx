@@ -135,10 +135,8 @@ export default function Leads() {
     }
   };
 
-  const cycleContactStatus = async (lead: Lead) => {
-    const order: Array<"niet_gebeld" | "gebeld" | "nabellen"> = ["niet_gebeld", "gebeld", "nabellen"];
-    const currentIdx = order.indexOf(lead.contact_status);
-    const newStatus = order[(currentIdx + 1) % order.length];
+  const setContactStatus = async (lead: Lead, newStatus: "niet_gebeld" | "gebeld" | "nabellen") => {
+    if (lead.contact_status === newStatus) return;
     const { error } = await supabase.from("leads").update({ contact_status: newStatus } as any).eq("id", lead.id);
     if (error) {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
@@ -163,31 +161,27 @@ export default function Leads() {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
     return (
       <div className="space-y-4 pb-6">
-        {/* Contact status toggle */}
-        <button
-          onClick={() => cycleContactStatus(lead)}
-          className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
-            lead.contact_status === "gebeld"
-              ? "border-primary bg-primary/10 text-primary"
-              : lead.contact_status === "nabellen"
-              ? "border-orange-500 bg-orange-500/10 text-orange-600"
-              : "border-border bg-muted/30 text-muted-foreground"
-          }`}
-        >
-          {lead.contact_status === "gebeld"
-            ? <PhoneCall className="h-4 w-4 shrink-0" />
-            : lead.contact_status === "nabellen"
-            ? <PhoneForwarded className="h-4 w-4 shrink-0" />
-            : <PhoneMissed className="h-4 w-4 shrink-0" />
-          }
-          <span className="font-medium text-sm">
-            {lead.contact_status === "gebeld"
-              ? "Gesproken ✓"
-              : lead.contact_status === "nabellen"
-              ? "Nog nabellen — tik om te wijzigen"
-              : "Nog niet gesproken — tik om te wijzigen"}
-          </span>
-        </button>
+        {/* Contact status buttons */}
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { value: "niet_gebeld" as const, label: "Niet gebeld", icon: PhoneMissed, activeClass: "border-destructive bg-destructive/10 text-destructive" },
+            { value: "gebeld" as const, label: "Gesproken", icon: PhoneCall, activeClass: "border-primary bg-primary/10 text-primary" },
+            { value: "nabellen" as const, label: "Nabellen", icon: PhoneForwarded, activeClass: "border-orange-500 bg-orange-500/10 text-orange-600" },
+          ]).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setContactStatus(lead, opt.value)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-colors text-center ${
+                lead.contact_status === opt.value
+                  ? opt.activeClass
+                  : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <opt.icon className="h-4 w-4" />
+              <span className="font-medium text-xs">{opt.label}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Contact info */}
         <div className="space-y-2">
