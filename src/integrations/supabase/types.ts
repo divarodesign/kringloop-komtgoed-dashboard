@@ -439,7 +439,7 @@ export type Database = {
           address: string | null
           advised_price: number | null
           city: string | null
-          contact_status: string
+          contact_statuses: string[]
           created_at: string
           email: string | null
           id: string
@@ -457,7 +457,7 @@ export type Database = {
           address?: string | null
           advised_price?: number | null
           city?: string | null
-          contact_status?: string
+          contact_statuses?: string[]
           created_at?: string
           email?: string | null
           id?: string
@@ -475,7 +475,7 @@ export type Database = {
           address?: string | null
           advised_price?: number | null
           city?: string | null
-          contact_status?: string
+          contact_statuses?: string[]
           created_at?: string
           email?: string | null
           id?: string
