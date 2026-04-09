@@ -35,7 +35,7 @@ export function AdminSidebar() {
       const { count } = await supabase
         .from("leads")
         .select("*", { count: "exact", head: true })
-        .eq("contacted", false);
+        .neq("contact_status" as any, "gebeld");
       setNieuwLeadsCount(count || 0);
     };
     fetchCount();
