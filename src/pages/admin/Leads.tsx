@@ -283,7 +283,7 @@ export default function Leads() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {photos.map((url, i) => (
-                <button key={i} onClick={() => setLightboxUrl(url)} className="block">
+                <button key={i} onClick={() => { setLightboxPhotos(photos); setLightboxIndex(i); }} className="block">
                   <img
                     src={url}
                     alt={`Foto ${i + 1}`}
