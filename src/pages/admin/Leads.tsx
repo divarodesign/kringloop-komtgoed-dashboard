@@ -429,7 +429,7 @@ export default function Leads() {
             {filtered.map(lead => (
               <button
                 key={lead.id}
-                className="w-full text-left rounded-xl border bg-card p-4 flex items-center gap-3 active:bg-muted/50 transition-colors"
+                className={`w-full text-left rounded-xl border p-4 flex items-center gap-3 active:bg-muted/50 transition-colors ${!lead.is_viewed ? "bg-primary/5 border-primary/20" : "bg-card"}`}
                 onClick={() => openLead(lead)}
               >
                 <div className="flex-1 min-w-0">
