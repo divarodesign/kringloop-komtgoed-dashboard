@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
-  Image, ChevronRight, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
+  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
 } from "lucide-react";
 
 interface LeadRoom {
