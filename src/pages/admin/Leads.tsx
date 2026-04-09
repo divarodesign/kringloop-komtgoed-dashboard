@@ -78,7 +78,7 @@ function parseNotes(raw: string | null): {
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen">("all");
+  const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen" | "nabellen">("all");
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
@@ -102,7 +102,9 @@ export default function Leads() {
   useEffect(() => { fetchLeads(); }, []);
 
   const filtered = leads.filter(l => {
-    if (filter !== "all" && l.status !== filter) return false;
+    if (filter === "nabellen") {
+      if (l.contact_status !== "nabellen") return false;
+    } else if (filter !== "all" && l.status !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
       return l.name.toLowerCase().includes(q) || l.email?.toLowerCase().includes(q) || l.city?.toLowerCase().includes(q) || l.phone?.includes(q);
@@ -386,17 +388,21 @@ export default function Leads() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-          {(["all", "nieuw", "omgezet", "afgewezen"] as const).map(f => (
-            <Button
-              key={f}
-              variant={filter === f ? "default" : "outline"}
-              size="sm"
-              className="shrink-0"
-              onClick={() => setFilter(f)}
-            >
-              {f === "all" ? "Alle" : f.charAt(0).toUpperCase() + f.slice(1)}
-            </Button>
-          ))}
+          {(["all", "nieuw", "nabellen", "omgezet", "afgewezen"] as const).map(f => {
+            const label = f === "all" ? "Alle" : f === "nabellen" ? "Nabellen" : f.charAt(0).toUpperCase() + f.slice(1);
+            const count = f === "nabellen" ? leads.filter(l => l.contact_status === "nabellen").length : undefined;
+            return (
+              <Button
+                key={f}
+                variant={filter === f ? "default" : "outline"}
+                size="sm"
+                className="shrink-0"
+                onClick={() => setFilter(f)}
+              >
+                {label}{count ? ` (${count})` : ""}
+              </Button>
+            );
+          })}
         </div>
       </div>
 
