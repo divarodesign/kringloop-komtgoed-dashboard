@@ -480,17 +480,20 @@ export default function Leads() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <button
-                          onClick={e => { e.stopPropagation(); cycleContactStatus(lead); }}
-                          title="Klik om contactstatus te wijzigen"
-                        >
-                          {lead.contact_status === "gebeld"
-                            ? <PhoneCall className="h-4 w-4 text-primary" />
-                            : lead.contact_status === "nabellen"
-                            ? <PhoneForwarded className="h-4 w-4 text-orange-500" />
-                            : <PhoneMissed className="h-4 w-4 text-destructive" />
-                          }
-                        </button>
+                        <div className="flex gap-1">
+                          <button onClick={e => { e.stopPropagation(); setContactStatus(lead, "niet_gebeld"); }} title="Niet gebeld"
+                            className={`p-1 rounded ${lead.contact_status === "niet_gebeld" ? "bg-destructive/10" : "opacity-30 hover:opacity-60"}`}>
+                            <PhoneMissed className="h-4 w-4 text-destructive" />
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); setContactStatus(lead, "gebeld"); }} title="Gesproken"
+                            className={`p-1 rounded ${lead.contact_status === "gebeld" ? "bg-primary/10" : "opacity-30 hover:opacity-60"}`}>
+                            <PhoneCall className="h-4 w-4 text-primary" />
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); setContactStatus(lead, "nabellen"); }} title="Nabellen"
+                            className={`p-1 rounded ${lead.contact_status === "nabellen" ? "bg-orange-100" : "opacity-30 hover:opacity-60"}`}>
+                            <PhoneForwarded className="h-4 w-4 text-orange-500" />
+                          </button>
+                        </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                         {format(new Date(lead.created_at), "d MMM yyyy", { locale: nl })}
