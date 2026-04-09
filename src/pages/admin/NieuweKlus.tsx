@@ -31,8 +31,9 @@ interface SelectedProduct {
 }
 
 interface RoomPhoto {
-  file: File;
+  file: File | null;
   preview: string;
+  uploaded?: boolean; // true if already saved to storage
 }
 
 interface Room {
@@ -314,17 +315,31 @@ const NieuweKlus = () => {
       const savedStep = localStorage.getItem(`concept_step_${conceptId}`);
       if (savedStep) setStep(parseInt(savedStep));
 
-      // Load job items into rooms
-      const { data: items } = await supabase.from("job_items").select("*").eq("job_id", conceptId);
+      // Load job items and photos into rooms
+      const [{ data: items }, { data: roomPhotos }] = await Promise.all([
+        supabase.from("job_items").select("*").eq("job_id", conceptId),
+        supabase.from("job_room_photos").select("*").eq("job_id", conceptId),
+      ]);
+      const roomMap: Record<string, SelectedProduct[]> = {};
+      const photoMap: Record<string, RoomPhoto[]> = {};
       if (items && items.length > 0) {
-        const roomMap: Record<string, SelectedProduct[]> = {};
         items.forEach((item: any) => {
           const rn = item.room_name || "Kamer 1";
           if (!roomMap[rn]) roomMap[rn] = [];
           roomMap[rn].push({ product_id: item.product_id, description: item.description, quantity: item.quantity, unit_price: item.unit_price });
         });
-        const loadedRooms: Room[] = Object.entries(roomMap).map(([name, prods]) => ({
-          id: crypto.randomUUID(), name, products: prods, photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "",
+      }
+      if (roomPhotos && roomPhotos.length > 0) {
+        roomPhotos.forEach((p: any) => {
+          const rn = p.room_name || "Kamer 1";
+          if (!photoMap[rn]) photoMap[rn] = [];
+          photoMap[rn].push({ file: null, preview: p.photo_url, uploaded: true });
+        });
+      }
+      const allRoomNames = new Set([...Object.keys(roomMap), ...Object.keys(photoMap)]);
+      if (allRoomNames.size > 0) {
+        const loadedRooms: Room[] = Array.from(allRoomNames).map(name => ({
+          id: crypto.randomUUID(), name, products: roomMap[name] || [], photos: photoMap[name] || [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "",
         }));
         setRooms(loadedRooms);
       }
@@ -442,6 +457,32 @@ const NieuweKlus = () => {
         await supabase.from("job_items").insert(itemsWithRooms);
       }
 
+      // Upload new room photos (skip already uploaded ones)
+      for (const room of rooms) {
+        for (let i = 0; i < room.photos.length; i++) {
+          const photo = room.photos[i];
+          if (photo.uploaded || !photo.file) continue;
+          const ext = photo.file.name.split('.').pop();
+          const path = `${jobId}/${room.id}/${crypto.randomUUID()}.${ext}`;
+          const { error: uploadErr } = await supabase.storage.from("room-photos").upload(path, photo.file);
+          if (!uploadErr) {
+            const { data: urlData } = supabase.storage.from("room-photos").getPublicUrl(path);
+            await supabase.from("job_room_photos").insert({
+              job_id: jobId!,
+              room_name: room.name,
+              photo_url: urlData.publicUrl,
+            });
+            // Mark as uploaded in state
+            setRooms(prev => prev.map(r => {
+              if (r.id !== room.id) return r;
+              const newPhotos = [...r.photos];
+              newPhotos[i] = { ...newPhotos[i], preview: urlData.publicUrl, uploaded: true, file: null };
+              return { ...r, photos: newPhotos };
+            }));
+          }
+        }
+      }
+
       toast({ title: "Concept opgeslagen!" });
     } catch (e: any) {
       toast({ title: "Fout bij opslaan", description: e.message, variant: "destructive" });
@@ -508,10 +549,11 @@ const NieuweKlus = () => {
       }
       await supabase.from("job_items").insert(itemsWithRooms);
     }
-    // Upload room photos
+    // Upload room photos (only new ones that haven't been uploaded yet)
     const roomsWithPhotos = rooms.filter(r => r.photos.length > 0);
     for (const room of roomsWithPhotos) {
       for (const photo of room.photos) {
+        if (photo.uploaded || !photo.file) continue; // Skip already uploaded
         const ext = photo.file.name.split('.').pop();
         const path = `${job.id}/${room.id}/${crypto.randomUUID()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from("room-photos").upload(path, photo.file);
