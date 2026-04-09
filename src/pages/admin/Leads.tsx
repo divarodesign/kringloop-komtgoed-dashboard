@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
-  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
+  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed, PhoneForwarded
 } from "lucide-react";
 
 interface LeadRoom {
@@ -163,21 +163,29 @@ export default function Leads() {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
     return (
       <div className="space-y-4 pb-6">
-        {/* Gesproken toggle */}
+        {/* Contact status toggle */}
         <button
-          onClick={() => toggleContacted(lead)}
+          onClick={() => cycleContactStatus(lead)}
           className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
-            lead.contacted
+            lead.contact_status === "gebeld"
               ? "border-primary bg-primary/10 text-primary"
+              : lead.contact_status === "nabellen"
+              ? "border-orange-500 bg-orange-500/10 text-orange-600"
               : "border-border bg-muted/30 text-muted-foreground"
           }`}
         >
-          {lead.contacted
+          {lead.contact_status === "gebeld"
             ? <PhoneCall className="h-4 w-4 shrink-0" />
+            : lead.contact_status === "nabellen"
+            ? <PhoneForwarded className="h-4 w-4 shrink-0" />
             : <PhoneMissed className="h-4 w-4 shrink-0" />
           }
           <span className="font-medium text-sm">
-            {lead.contacted ? "Gesproken ✓" : "Nog niet gesproken — tik om te markeren"}
+            {lead.contact_status === "gebeld"
+              ? "Gesproken ✓"
+              : lead.contact_status === "nabellen"
+              ? "Nog nabellen — tik om te wijzigen"
+              : "Nog niet gesproken — tik om te wijzigen"}
           </span>
         </button>
 
@@ -337,9 +345,14 @@ export default function Leads() {
         <Badge variant={statusConfig[lead.status].variant}>
           {statusConfig[lead.status].label}
         </Badge>
-        {lead.contacted && (
+        {lead.contact_status === "gebeld" && (
           <Badge variant="outline" className="text-primary border-primary text-xs">
             <PhoneCall className="h-3 w-3 mr-1" />Gesproken
+          </Badge>
+        )}
+        {lead.contact_status === "nabellen" && (
+          <Badge variant="outline" className="text-orange-600 border-orange-500 text-xs">
+            <PhoneForwarded className="h-3 w-3 mr-1" />Nabellen
           </Badge>
         )}
       </h2>
