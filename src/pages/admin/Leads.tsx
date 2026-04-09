@@ -430,7 +430,7 @@ export default function Leads() {
               <button
                 key={lead.id}
                 className="w-full text-left rounded-xl border bg-card p-4 flex items-center gap-3 active:bg-muted/50 transition-colors"
-                onClick={() => setSelectedLead(lead)}
+                onClick={() => openLead(lead)}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -483,7 +483,7 @@ export default function Leads() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map(lead => (
-                    <TableRow key={lead.id} className="cursor-pointer" onClick={() => setSelectedLead(lead)}>
+                    <TableRow key={lead.id} className={`cursor-pointer ${!lead.is_viewed ? "bg-primary/5 font-medium" : ""}`} onClick={() => openLead(lead)}>
                       <TableCell className="font-medium">{lead.name}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">{lead.phone || "—"}</TableCell>
@@ -514,7 +514,7 @@ export default function Leads() {
                         {format(new Date(lead.created_at), "d MMM yyyy", { locale: nl })}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); setSelectedLead(lead); }}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); openLead(lead); }}>
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
