@@ -188,9 +188,9 @@ export default function Leads() {
           ]).map(opt => (
             <button
               key={opt.value}
-              onClick={() => setContactStatus(lead, opt.value)}
+              onClick={() => toggleContactStatus(lead, opt.value)}
               className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-colors text-center ${
-                lead.contact_status === opt.value
+                lead.contact_statuses.includes(opt.value)
                   ? opt.activeClass
                   : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
               }`}
@@ -357,12 +357,12 @@ export default function Leads() {
         <Badge variant={statusConfig[lead.status].variant}>
           {statusConfig[lead.status].label}
         </Badge>
-        {lead.contact_status === "gebeld" && (
+        {lead.contact_statuses.includes("gebeld") && (
           <Badge variant="outline" className="text-primary border-primary text-xs">
             <PhoneCall className="h-3 w-3 mr-1" />Gesproken
           </Badge>
         )}
-        {lead.contact_status === "nabellen" && (
+        {lead.contact_statuses.includes("nabellen") && (
           <Badge variant="outline" className="text-orange-600 border-orange-500 text-xs">
             <PhoneForwarded className="h-3 w-3 mr-1" />Nabellen
           </Badge>
@@ -406,7 +406,7 @@ export default function Leads() {
         <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
           {(["all", "nieuw", "nabellen", "omgezet", "afgewezen"] as const).map(f => {
             const label = f === "all" ? "Alle" : f === "nabellen" ? "Nabellen" : f.charAt(0).toUpperCase() + f.slice(1);
-            const count = f === "nabellen" ? leads.filter(l => l.contact_status === "nabellen").length : undefined;
+            const count = f === "nabellen" ? leads.filter(l => l.contact_statuses.includes("nabellen")).length : undefined;
             return (
               <Button
                 key={f}
@@ -445,15 +445,17 @@ export default function Leads() {
                     <Badge variant={statusConfig[lead.status].variant} className="text-[10px] px-1.5 py-0">
                       {statusConfig[lead.status].label}
                     </Badge>
-                    {lead.status === "nieuw" && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        lead.contact_status === "gebeld" ? "bg-primary/10 text-primary" 
-                        : lead.contact_status === "nabellen" ? "bg-orange-100 text-orange-600"
-                        : "bg-destructive/10 text-destructive"
-                      }`}>
-                        {lead.contact_status === "gebeld" ? "Gesproken" : lead.contact_status === "nabellen" ? "Nabellen" : "Bellen"}
-                      </span>
-                    )}
+                    {lead.status === "nieuw" && lead.contact_statuses.filter(s => s !== "niet_gebeld").length > 0 ? (
+                      lead.contact_statuses.filter(s => s !== "niet_gebeld").map(s => (
+                        <span key={s} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          s === "gebeld" ? "bg-primary/10 text-primary" : "bg-orange-100 text-orange-600"
+                        }`}>
+                          {s === "gebeld" ? "Gesproken" : "Nabellen"}
+                        </span>
+                      ))
+                    ) : lead.status === "nieuw" ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-destructive/10 text-destructive">Bellen</span>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {lead.city && <span>{lead.city}</span>}
@@ -503,16 +505,16 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <button onClick={e => { e.stopPropagation(); setContactStatus(lead, "niet_gebeld"); }} title="Niet gebeld"
-                            className={`p-1 rounded ${lead.contact_status === "niet_gebeld" ? "bg-destructive/10" : "opacity-30 hover:opacity-60"}`}>
+                          <button onClick={e => { e.stopPropagation(); toggleContactStatus(lead, "niet_gebeld"); }} title="Niet gebeld"
+                            className={`p-1 rounded ${lead.contact_statuses.includes("niet_gebeld") ? "bg-destructive/10" : "opacity-30 hover:opacity-60"}`}>
                             <PhoneMissed className="h-4 w-4 text-destructive" />
                           </button>
-                          <button onClick={e => { e.stopPropagation(); setContactStatus(lead, "gebeld"); }} title="Gesproken"
-                            className={`p-1 rounded ${lead.contact_status === "gebeld" ? "bg-primary/10" : "opacity-30 hover:opacity-60"}`}>
+                          <button onClick={e => { e.stopPropagation(); toggleContactStatus(lead, "gebeld"); }} title="Gesproken"
+                            className={`p-1 rounded ${lead.contact_statuses.includes("gebeld") ? "bg-primary/10" : "opacity-30 hover:opacity-60"}`}>
                             <PhoneCall className="h-4 w-4 text-primary" />
                           </button>
-                          <button onClick={e => { e.stopPropagation(); setContactStatus(lead, "nabellen"); }} title="Nabellen"
-                            className={`p-1 rounded ${lead.contact_status === "nabellen" ? "bg-orange-100" : "opacity-30 hover:opacity-60"}`}>
+                          <button onClick={e => { e.stopPropagation(); toggleContactStatus(lead, "nabellen"); }} title="Nabellen"
+                            className={`p-1 rounded ${lead.contact_statuses.includes("nabellen") ? "bg-orange-100" : "opacity-30 hover:opacity-60"}`}>
                             <PhoneForwarded className="h-4 w-4 text-orange-500" />
                           </button>
                         </div>
