@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN is_viewed boolean NOT NULL DEFAULT false;

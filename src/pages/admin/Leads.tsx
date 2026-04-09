@@ -34,6 +34,7 @@ interface Lead {
   job_id: string | null;
   notes: string | null;
   contact_status: "niet_gebeld" | "gebeld" | "nabellen";
+  is_viewed: boolean;
   created_at: string;
 }
 
@@ -81,6 +82,14 @@ export default function Leads() {
   const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen" | "nabellen">("all");
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  const openLead = async (lead: Lead) => {
+    setSelectedLead(lead);
+    if (!lead.is_viewed) {
+      await supabase.from("leads").update({ is_viewed: true } as any).eq("id", lead.id);
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, is_viewed: true } : l));
+    }
+  };
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const { toast } = useToast();
@@ -94,7 +103,7 @@ export default function Leads() {
     if (error) {
       toast({ title: "Fout bij laden", description: error.message, variant: "destructive" });
     } else {
-      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld" })));
+      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld", is_viewed: l.is_viewed ?? false })));
     }
     setLoading(false);
   };
@@ -420,8 +429,8 @@ export default function Leads() {
             {filtered.map(lead => (
               <button
                 key={lead.id}
-                className="w-full text-left rounded-xl border bg-card p-4 flex items-center gap-3 active:bg-muted/50 transition-colors"
-                onClick={() => setSelectedLead(lead)}
+                className={`w-full text-left rounded-xl border p-4 flex items-center gap-3 active:bg-muted/50 transition-colors ${!lead.is_viewed ? "bg-primary/5 border-primary/20" : "bg-card"}`}
+                onClick={() => openLead(lead)}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -474,7 +483,7 @@ export default function Leads() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map(lead => (
-                    <TableRow key={lead.id} className="cursor-pointer" onClick={() => setSelectedLead(lead)}>
+                    <TableRow key={lead.id} className={`cursor-pointer ${!lead.is_viewed ? "bg-primary/5 font-medium" : ""}`} onClick={() => openLead(lead)}>
                       <TableCell className="font-medium">{lead.name}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">{lead.phone || "—"}</TableCell>
@@ -505,7 +514,7 @@ export default function Leads() {
                         {format(new Date(lead.created_at), "d MMM yyyy", { locale: nl })}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); setSelectedLead(lead); }}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); openLead(lead); }}>
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
