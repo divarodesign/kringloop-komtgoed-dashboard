@@ -32,20 +32,29 @@ export function AdminSidebar() {
 
   useEffect(() => {
     const fetchCount = async () => {
-      const { count } = await (supabase
+      const { count, error } = await (supabase
         .from("leads") as any)
         .select("*", { count: "exact", head: true })
         .eq("is_viewed", false);
-      setNieuwLeadsCount(count || 0);
+      if (!error) setNieuwLeadsCount(count ?? 0);
     };
     fetchCount();
 
+    // Realtime subscription
     const channel = supabase
       .channel("leads-badge")
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, fetchCount)
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
+        setTimeout(fetchCount, 300);
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Poll every 30s as fallback
+    const interval = setInterval(fetchCount, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
