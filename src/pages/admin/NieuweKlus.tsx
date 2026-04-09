@@ -206,6 +206,14 @@ const NieuweKlus = () => {
     }));
   };
 
+  const setRoomProductAbsoluteQuantity = (roomId: string, productId: string, qty: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      if (qty <= 0) return { ...r, products: r.products.filter(p => p.product_id !== productId) };
+      return { ...r, products: r.products.map(p => p.product_id === productId ? { ...p, quantity: qty } : p) };
+    }));
+  };
+
   const addRoom = () => {
     const nextNum = rooms.length + 1;
     setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
@@ -822,7 +830,7 @@ const NieuweKlus = () => {
                             <span className="truncate flex-1">{sp.description}</span>
                             <div className="flex items-center gap-1 shrink-0">
                               <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, -1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Minus className="h-3 w-3" /></button>
-                              <span className="w-5 text-center font-medium">{sp.quantity}</span>
+                              <input type="number" min="1" value={sp.quantity} onChange={e => { const v = parseInt(e.target.value); if (v > 0) setRoomProductAbsoluteQuantity(room.id, sp.product_id, v); }} className="w-8 text-center font-medium bg-transparent border rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
                               <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, 1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Plus className="h-3 w-3" /></button>
                             </div>
                             <span className="font-medium shrink-0 w-16 text-right">{formatPrice(sp.quantity * sp.unit_price)}</span>
@@ -874,7 +882,7 @@ const NieuweKlus = () => {
                                         {isSelected ? (
                                           <div className="flex items-center gap-1 mt-auto" onClick={(e) => e.stopPropagation()}>
                                             <button onClick={() => setRoomProductQuantity(room.id, product, -1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Minus className="h-3 w-3" /></button>
-                                            <span className="text-xs font-bold w-5 text-center">{qty}</span>
+                                            <input type="number" min="1" value={qty} onChange={e => { const v = parseInt(e.target.value); if (v > 0) setRoomProductAbsoluteQuantity(room.id, product.id, v); }} className="w-8 text-center font-bold text-xs bg-transparent border rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
                                             <button onClick={() => setRoomProductQuantity(room.id, product, 1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Plus className="h-3 w-3" /></button>
                                           </div>
                                         ) : (
@@ -949,7 +957,7 @@ const NieuweKlus = () => {
                                     {isSelected ? (
                                       <div className="flex items-center gap-1 mt-auto" onClick={(e) => e.stopPropagation()}>
                                         <button onClick={() => setRoomProductQuantity(room.id, product, -1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Minus className="h-3 w-3" /></button>
-                                        <span className="text-xs font-bold w-5 text-center">{qty}</span>
+                                        <input type="number" min="1" value={qty} onChange={e => { const v = parseInt(e.target.value); if (v > 0) setRoomProductAbsoluteQuantity(room.id, product.id, v); }} className="w-8 text-center font-bold text-xs bg-transparent border rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
                                         <button onClick={() => setRoomProductQuantity(room.id, product, 1)} className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center touch-manipulation active:scale-90"><Plus className="h-3 w-3" /></button>
                                       </div>
                                     ) : (
@@ -1213,7 +1221,7 @@ const NieuweKlus = () => {
                             className="h-5 w-5 rounded border flex items-center justify-center hover:bg-muted"
                             onClick={(e) => { e.stopPropagation(); setRooms(prev => prev.map(r => r.id !== room.id ? r : { ...r, products: r.products.map((pr, pi) => pi !== i ? pr : { ...pr, quantity: Math.max(1, pr.quantity - 1) }) })); }}
                           ><Minus className="h-3 w-3" /></button>
-                          <span className="text-foreground font-medium w-4 text-center">{p.quantity}</span>
+                          <input type="number" min="1" value={p.quantity} onChange={e => { e.stopPropagation(); const v = parseInt(e.target.value); if (v > 0) setRooms(prev => prev.map(r => r.id !== room.id ? r : { ...r, products: r.products.map((pr, pi) => pi !== i ? pr : { ...pr, quantity: v }) })); }} className="w-7 text-center font-medium text-foreground bg-transparent border rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
                           <button
                             type="button"
                             className="h-5 w-5 rounded border flex items-center justify-center hover:bg-muted"
