@@ -82,6 +82,14 @@ export default function Leads() {
   const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen" | "nabellen">("all");
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  const openLead = async (lead: Lead) => {
+    setSelectedLead(lead);
+    if (!lead.is_viewed) {
+      await supabase.from("leads").update({ is_viewed: true } as any).eq("id", lead.id);
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, is_viewed: true } : l));
+    }
+  };
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const { toast } = useToast();
