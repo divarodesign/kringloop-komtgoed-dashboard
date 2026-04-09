@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
-  Image, ChevronRight, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
+  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
 } from "lucide-react";
 
 interface LeadRoom {
@@ -81,7 +81,8 @@ export default function Leads() {
   const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen">("all");
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -282,7 +283,7 @@ export default function Leads() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {photos.map((url, i) => (
-                <button key={i} onClick={() => setLightboxUrl(url)} className="block">
+                <button key={i} onClick={() => { setLightboxPhotos(photos); setLightboxIndex(i); }} className="block">
                   <img
                     src={url}
                     alt={`Foto ${i + 1}`}
@@ -526,22 +527,49 @@ export default function Leads() {
       )}
 
       {/* Lightbox */}
-      {lightboxUrl && (
+      {lightboxPhotos.length > 0 && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90"
+          onClick={() => setLightboxPhotos([])}
         >
           <button
-            className="absolute right-4 top-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            onClick={() => setLightboxUrl(null)}
+            className="absolute right-3 top-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+            onClick={() => setLightboxPhotos([])}
           >
             <X className="h-5 w-5" />
           </button>
+
+          {/* Counter */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium z-10">
+            {lightboxIndex + 1} / {lightboxPhotos.length}
+          </div>
+
+          {/* Previous */}
+          {lightboxPhotos.length > 1 && (
+            <button
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length); }}
+            >
+              <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          )}
+
+          {/* Next */}
+          {lightboxPhotos.length > 1 && (
+            <button
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % lightboxPhotos.length); }}
+            >
+              <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          )}
+
           <img
-            src={lightboxUrl}
-            alt="Foto vergroot"
-            className="max-w-full max-h-full rounded-xl object-contain"
+            src={lightboxPhotos[lightboxIndex]}
+            alt={`Foto ${lightboxIndex + 1}`}
+            className="max-w-[90vw] max-h-[85vh] rounded-xl object-contain select-none"
             onClick={e => e.stopPropagation()}
+            draggable={false}
           />
         </div>
       )}
