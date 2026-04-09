@@ -443,6 +443,32 @@ const NieuweKlus = () => {
         await supabase.from("job_items").insert(itemsWithRooms);
       }
 
+      // Upload new room photos (skip already uploaded ones)
+      for (const room of rooms) {
+        for (let i = 0; i < room.photos.length; i++) {
+          const photo = room.photos[i];
+          if (photo.uploaded || !photo.file) continue;
+          const ext = photo.file.name.split('.').pop();
+          const path = `${jobId}/${room.id}/${crypto.randomUUID()}.${ext}`;
+          const { error: uploadErr } = await supabase.storage.from("room-photos").upload(path, photo.file);
+          if (!uploadErr) {
+            const { data: urlData } = supabase.storage.from("room-photos").getPublicUrl(path);
+            await supabase.from("job_room_photos").insert({
+              job_id: jobId!,
+              room_name: room.name,
+              photo_url: urlData.publicUrl,
+            });
+            // Mark as uploaded in state
+            setRooms(prev => prev.map(r => {
+              if (r.id !== room.id) return r;
+              const newPhotos = [...r.photos];
+              newPhotos[i] = { ...newPhotos[i], preview: urlData.publicUrl, uploaded: true, file: null };
+              return { ...r, photos: newPhotos };
+            }));
+          }
+        }
+      }
+
       toast({ title: "Concept opgeslagen!" });
     } catch (e: any) {
       toast({ title: "Fout bij opslaan", description: e.message, variant: "destructive" });
