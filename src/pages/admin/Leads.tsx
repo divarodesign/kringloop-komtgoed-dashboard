@@ -33,7 +33,7 @@ interface Lead {
   status: "nieuw" | "omgezet" | "afgewezen";
   job_id: string | null;
   notes: string | null;
-  contact_status: "niet_gebeld" | "gebeld" | "nabellen";
+  contact_statuses: string[];
   is_viewed: boolean;
   created_at: string;
 }
@@ -103,7 +103,7 @@ export default function Leads() {
     if (error) {
       toast({ title: "Fout bij laden", description: error.message, variant: "destructive" });
     } else {
-      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld", is_viewed: l.is_viewed ?? false })));
+      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_statuses: Array.isArray(l.contact_statuses) ? l.contact_statuses : ["niet_gebeld"], is_viewed: l.is_viewed ?? false })));
     }
     setLoading(false);
   };
@@ -112,7 +112,7 @@ export default function Leads() {
 
   const filtered = leads.filter(l => {
     if (filter === "nabellen") {
-      if (l.contact_status !== "nabellen") return false;
+      if (!l.contact_statuses.includes("nabellen")) return false;
     } else if (filter !== "all" && l.status !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -122,7 +122,7 @@ export default function Leads() {
   });
 
   const nieuweCount = leads.filter(l => l.status === "nieuw").length;
-  const nogBellenCount = leads.filter(l => l.status === "nieuw" && l.contact_status !== "gebeld").length;
+  const nogBellenCount = leads.filter(l => l.status === "nieuw" && !l.contact_statuses.includes("gebeld")).length;
 
   const afwijzen = async (lead: Lead) => {
     const { error } = await supabase.from("leads").update({ status: "afgewezen" }).eq("id", lead.id);
@@ -146,13 +146,20 @@ export default function Leads() {
     }
   };
 
-  const setContactStatus = async (lead: Lead, newStatus: "niet_gebeld" | "gebeld" | "nabellen") => {
-    if (lead.contact_status === newStatus) return;
-    const { error } = await supabase.from("leads").update({ contact_status: newStatus } as any).eq("id", lead.id);
+  const toggleContactStatus = async (lead: Lead, status: string) => {
+    const current = lead.contact_statuses;
+    let next: string[];
+    if (current.includes(status)) {
+      next = current.filter(s => s !== status);
+      if (next.length === 0) next = ["niet_gebeld"];
+    } else {
+      next = [...current.filter(s => s !== "niet_gebeld"), status];
+    }
+    const { error } = await supabase.from("leads").update({ contact_statuses: next } as any).eq("id", lead.id);
     if (error) {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
     } else {
-      const updated = { ...lead, contact_status: newStatus };
+      const updated = { ...lead, contact_statuses: next };
       setLeads(prev => prev.map(l => l.id === lead.id ? updated : l));
       if (selectedLead?.id === lead.id) setSelectedLead(updated);
     }
