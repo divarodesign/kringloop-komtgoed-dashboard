@@ -34,6 +34,7 @@ interface Lead {
   job_id: string | null;
   notes: string | null;
   contact_status: "niet_gebeld" | "gebeld" | "nabellen";
+  is_viewed: boolean;
   created_at: string;
 }
 
@@ -94,7 +95,7 @@ export default function Leads() {
     if (error) {
       toast({ title: "Fout bij laden", description: error.message, variant: "destructive" });
     } else {
-      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld" })));
+      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld", is_viewed: l.is_viewed ?? false })));
     }
     setLoading(false);
   };

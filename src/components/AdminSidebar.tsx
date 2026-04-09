@@ -35,7 +35,7 @@ export function AdminSidebar() {
       const { count } = await (supabase
         .from("leads") as any)
         .select("*", { count: "exact", head: true })
-        .neq("contact_status", "gebeld");
+        .eq("is_viewed", false);
       setNieuwLeadsCount(count || 0);
     };
     fetchCount();
