@@ -430,8 +430,12 @@ export default function Leads() {
                       {statusConfig[lead.status].label}
                     </Badge>
                     {lead.status === "nieuw" && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${lead.contacted ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
-                        {lead.contacted ? "Gesproken" : "Bellen"}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        lead.contact_status === "gebeld" ? "bg-primary/10 text-primary" 
+                        : lead.contact_status === "nabellen" ? "bg-orange-100 text-orange-600"
+                        : "bg-destructive/10 text-destructive"
+                      }`}>
+                        {lead.contact_status === "gebeld" ? "Gesproken" : lead.contact_status === "nabellen" ? "Nabellen" : "Bellen"}
                       </span>
                     )}
                   </div>
@@ -483,11 +487,13 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <button
-                          onClick={e => { e.stopPropagation(); toggleContacted(lead); }}
-                          title={lead.contacted ? "Markeer als niet gesproken" : "Markeer als gesproken"}
+                          onClick={e => { e.stopPropagation(); cycleContactStatus(lead); }}
+                          title="Klik om contactstatus te wijzigen"
                         >
-                          {lead.contacted
+                          {lead.contact_status === "gebeld"
                             ? <PhoneCall className="h-4 w-4 text-primary" />
+                            : lead.contact_status === "nabellen"
+                            ? <PhoneForwarded className="h-4 w-4 text-orange-500" />
                             : <PhoneMissed className="h-4 w-4 text-destructive" />
                           }
                         </button>
