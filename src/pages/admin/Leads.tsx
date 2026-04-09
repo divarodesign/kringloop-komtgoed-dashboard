@@ -33,7 +33,7 @@ interface Lead {
   status: "nieuw" | "omgezet" | "afgewezen";
   job_id: string | null;
   notes: string | null;
-  contacted: boolean;
+  contact_status: "niet_gebeld" | "gebeld" | "nabellen";
   created_at: string;
 }
 
@@ -94,7 +94,7 @@ export default function Leads() {
     if (error) {
       toast({ title: "Fout bij laden", description: error.message, variant: "destructive" });
     } else {
-      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contacted: l.contacted ?? false })));
+      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld" })));
     }
     setLoading(false);
   };
@@ -111,7 +111,7 @@ export default function Leads() {
   });
 
   const nieuweCount = leads.filter(l => l.status === "nieuw").length;
-  const nogBellenCount = leads.filter(l => l.status === "nieuw" && !l.contacted).length;
+  const nogBellenCount = leads.filter(l => l.status === "nieuw" && l.contact_status !== "gebeld").length;
 
   const afwijzen = async (lead: Lead) => {
     const { error } = await supabase.from("leads").update({ status: "afgewezen" }).eq("id", lead.id);
@@ -135,15 +135,17 @@ export default function Leads() {
     }
   };
 
-  const toggleContacted = async (lead: Lead) => {
-    const newVal = !lead.contacted;
-    const { error } = await supabase.from("leads").update({ contacted: newVal } as any).eq("id", lead.id);
+  const cycleContactStatus = async (lead: Lead) => {
+    const order: Array<"niet_gebeld" | "gebeld" | "nabellen"> = ["niet_gebeld", "gebeld", "nabellen"];
+    const currentIdx = order.indexOf(lead.contact_status);
+    const newStatus = order[(currentIdx + 1) % order.length];
+    const { error } = await supabase.from("leads").update({ contact_status: newStatus } as any).eq("id", lead.id);
     if (error) {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
     } else {
-      const updated = { ...lead, contacted: newVal };
+      const updated = { ...lead, contact_status: newStatus };
       setLeads(prev => prev.map(l => l.id === lead.id ? updated : l));
-      setSelectedLead(updated);
+      if (selectedLead?.id === lead.id) setSelectedLead(updated);
     }
   };
 
