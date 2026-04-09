@@ -206,6 +206,14 @@ const NieuweKlus = () => {
     }));
   };
 
+  const setRoomProductAbsoluteQuantity = (roomId: string, productId: string, qty: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      if (qty <= 0) return { ...r, products: r.products.filter(p => p.product_id !== productId) };
+      return { ...r, products: r.products.map(p => p.product_id === productId ? { ...p, quantity: qty } : p) };
+    }));
+  };
+
   const addRoom = () => {
     const nextNum = rooms.length + 1;
     setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
