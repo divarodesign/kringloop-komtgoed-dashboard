@@ -81,7 +81,8 @@ export default function Leads() {
   const [filter, setFilter] = useState<"all" | "nieuw" | "omgezet" | "afgewezen">("all");
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
 
