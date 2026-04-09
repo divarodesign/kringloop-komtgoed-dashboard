@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
-  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed
+  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed, PhoneForwarded
 } from "lucide-react";
 
 interface LeadRoom {
@@ -33,7 +33,7 @@ interface Lead {
   status: "nieuw" | "omgezet" | "afgewezen";
   job_id: string | null;
   notes: string | null;
-  contacted: boolean;
+  contact_status: "niet_gebeld" | "gebeld" | "nabellen";
   created_at: string;
 }
 
@@ -94,7 +94,7 @@ export default function Leads() {
     if (error) {
       toast({ title: "Fout bij laden", description: error.message, variant: "destructive" });
     } else {
-      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contacted: l.contacted ?? false })));
+      setLeads((data as any[]).map(l => ({ ...l, rooms: Array.isArray(l.rooms) ? l.rooms : [], contact_status: l.contact_status ?? "niet_gebeld" })));
     }
     setLoading(false);
   };
@@ -111,7 +111,7 @@ export default function Leads() {
   });
 
   const nieuweCount = leads.filter(l => l.status === "nieuw").length;
-  const nogBellenCount = leads.filter(l => l.status === "nieuw" && !l.contacted).length;
+  const nogBellenCount = leads.filter(l => l.status === "nieuw" && l.contact_status !== "gebeld").length;
 
   const afwijzen = async (lead: Lead) => {
     const { error } = await supabase.from("leads").update({ status: "afgewezen" }).eq("id", lead.id);
@@ -135,15 +135,17 @@ export default function Leads() {
     }
   };
 
-  const toggleContacted = async (lead: Lead) => {
-    const newVal = !lead.contacted;
-    const { error } = await supabase.from("leads").update({ contacted: newVal } as any).eq("id", lead.id);
+  const cycleContactStatus = async (lead: Lead) => {
+    const order: Array<"niet_gebeld" | "gebeld" | "nabellen"> = ["niet_gebeld", "gebeld", "nabellen"];
+    const currentIdx = order.indexOf(lead.contact_status);
+    const newStatus = order[(currentIdx + 1) % order.length];
+    const { error } = await supabase.from("leads").update({ contact_status: newStatus } as any).eq("id", lead.id);
     if (error) {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
     } else {
-      const updated = { ...lead, contacted: newVal };
+      const updated = { ...lead, contact_status: newStatus };
       setLeads(prev => prev.map(l => l.id === lead.id ? updated : l));
-      setSelectedLead(updated);
+      if (selectedLead?.id === lead.id) setSelectedLead(updated);
     }
   };
 
@@ -161,21 +163,29 @@ export default function Leads() {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
     return (
       <div className="space-y-4 pb-6">
-        {/* Gesproken toggle */}
+        {/* Contact status toggle */}
         <button
-          onClick={() => toggleContacted(lead)}
+          onClick={() => cycleContactStatus(lead)}
           className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
-            lead.contacted
+            lead.contact_status === "gebeld"
               ? "border-primary bg-primary/10 text-primary"
+              : lead.contact_status === "nabellen"
+              ? "border-orange-500 bg-orange-500/10 text-orange-600"
               : "border-border bg-muted/30 text-muted-foreground"
           }`}
         >
-          {lead.contacted
+          {lead.contact_status === "gebeld"
             ? <PhoneCall className="h-4 w-4 shrink-0" />
+            : lead.contact_status === "nabellen"
+            ? <PhoneForwarded className="h-4 w-4 shrink-0" />
             : <PhoneMissed className="h-4 w-4 shrink-0" />
           }
           <span className="font-medium text-sm">
-            {lead.contacted ? "Gesproken ✓" : "Nog niet gesproken — tik om te markeren"}
+            {lead.contact_status === "gebeld"
+              ? "Gesproken ✓"
+              : lead.contact_status === "nabellen"
+              ? "Nog nabellen — tik om te wijzigen"
+              : "Nog niet gesproken — tik om te wijzigen"}
           </span>
         </button>
 
@@ -335,9 +345,14 @@ export default function Leads() {
         <Badge variant={statusConfig[lead.status].variant}>
           {statusConfig[lead.status].label}
         </Badge>
-        {lead.contacted && (
+        {lead.contact_status === "gebeld" && (
           <Badge variant="outline" className="text-primary border-primary text-xs">
             <PhoneCall className="h-3 w-3 mr-1" />Gesproken
+          </Badge>
+        )}
+        {lead.contact_status === "nabellen" && (
+          <Badge variant="outline" className="text-orange-600 border-orange-500 text-xs">
+            <PhoneForwarded className="h-3 w-3 mr-1" />Nabellen
           </Badge>
         )}
       </h2>
@@ -415,8 +430,12 @@ export default function Leads() {
                       {statusConfig[lead.status].label}
                     </Badge>
                     {lead.status === "nieuw" && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${lead.contacted ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
-                        {lead.contacted ? "Gesproken" : "Bellen"}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        lead.contact_status === "gebeld" ? "bg-primary/10 text-primary" 
+                        : lead.contact_status === "nabellen" ? "bg-orange-100 text-orange-600"
+                        : "bg-destructive/10 text-destructive"
+                      }`}>
+                        {lead.contact_status === "gebeld" ? "Gesproken" : lead.contact_status === "nabellen" ? "Nabellen" : "Bellen"}
                       </span>
                     )}
                   </div>
@@ -468,11 +487,13 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <button
-                          onClick={e => { e.stopPropagation(); toggleContacted(lead); }}
-                          title={lead.contacted ? "Markeer als niet gesproken" : "Markeer als gesproken"}
+                          onClick={e => { e.stopPropagation(); cycleContactStatus(lead); }}
+                          title="Klik om contactstatus te wijzigen"
                         >
-                          {lead.contacted
+                          {lead.contact_status === "gebeld"
                             ? <PhoneCall className="h-4 w-4 text-primary" />
+                            : lead.contact_status === "nabellen"
+                            ? <PhoneForwarded className="h-4 w-4 text-orange-500" />
                             : <PhoneMissed className="h-4 w-4 text-destructive" />
                           }
                         </button>
