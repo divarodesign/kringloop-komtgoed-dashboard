@@ -549,10 +549,11 @@ const NieuweKlus = () => {
       }
       await supabase.from("job_items").insert(itemsWithRooms);
     }
-    // Upload room photos
+    // Upload room photos (only new ones that haven't been uploaded yet)
     const roomsWithPhotos = rooms.filter(r => r.photos.length > 0);
     for (const room of roomsWithPhotos) {
       for (const photo of room.photos) {
+        if (photo.uploaded || !photo.file) continue; // Skip already uploaded
         const ext = photo.file.name.split('.').pop();
         const path = `${job.id}/${room.id}/${crypto.randomUUID()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from("room-photos").upload(path, photo.file);
