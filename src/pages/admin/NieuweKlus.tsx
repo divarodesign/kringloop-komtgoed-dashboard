@@ -315,17 +315,31 @@ const NieuweKlus = () => {
       const savedStep = localStorage.getItem(`concept_step_${conceptId}`);
       if (savedStep) setStep(parseInt(savedStep));
 
-      // Load job items into rooms
-      const { data: items } = await supabase.from("job_items").select("*").eq("job_id", conceptId);
+      // Load job items and photos into rooms
+      const [{ data: items }, { data: roomPhotos }] = await Promise.all([
+        supabase.from("job_items").select("*").eq("job_id", conceptId),
+        supabase.from("job_room_photos").select("*").eq("job_id", conceptId),
+      ]);
+      const roomMap: Record<string, SelectedProduct[]> = {};
+      const photoMap: Record<string, RoomPhoto[]> = {};
       if (items && items.length > 0) {
-        const roomMap: Record<string, SelectedProduct[]> = {};
         items.forEach((item: any) => {
           const rn = item.room_name || "Kamer 1";
           if (!roomMap[rn]) roomMap[rn] = [];
           roomMap[rn].push({ product_id: item.product_id, description: item.description, quantity: item.quantity, unit_price: item.unit_price });
         });
-        const loadedRooms: Room[] = Object.entries(roomMap).map(([name, prods]) => ({
-          id: crypto.randomUUID(), name, products: prods, photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "",
+      }
+      if (roomPhotos && roomPhotos.length > 0) {
+        roomPhotos.forEach((p: any) => {
+          const rn = p.room_name || "Kamer 1";
+          if (!photoMap[rn]) photoMap[rn] = [];
+          photoMap[rn].push({ file: null, preview: p.photo_url, uploaded: true });
+        });
+      }
+      const allRoomNames = new Set([...Object.keys(roomMap), ...Object.keys(photoMap)]);
+      if (allRoomNames.size > 0) {
+        const loadedRooms: Room[] = Array.from(allRoomNames).map(name => ({
+          id: crypto.randomUUID(), name, products: roomMap[name] || [], photos: photoMap[name] || [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "",
         }));
         setRooms(loadedRooms);
       }
