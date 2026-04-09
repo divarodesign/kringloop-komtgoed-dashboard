@@ -32,10 +32,10 @@ export function AdminSidebar() {
 
   useEffect(() => {
     const fetchCount = async () => {
-      const { count } = await supabase
-        .from("leads")
+      const { count } = await (supabase
+        .from("leads") as any)
         .select("*", { count: "exact", head: true })
-        .neq("contact_status" as any, "gebeld");
+        .neq("contact_status", "gebeld");
       setNieuwLeadsCount(count || 0);
     };
     fetchCount();
