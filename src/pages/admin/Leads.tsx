@@ -403,7 +403,6 @@ export default function Leads() {
               </Button>
             );
           })}
-          ))}
         </div>
       </div>
 
