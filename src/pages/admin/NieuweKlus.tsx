@@ -31,8 +31,9 @@ interface SelectedProduct {
 }
 
 interface RoomPhoto {
-  file: File;
+  file: File | null;
   preview: string;
+  uploaded?: boolean; // true if already saved to storage
 }
 
 interface Room {
