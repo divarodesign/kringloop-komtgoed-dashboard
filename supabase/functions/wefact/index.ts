@@ -561,7 +561,12 @@ Deno.serve(async (req) => {
 
       if (!quote?.quote_number) throw new Error("Geen offerte gevonden om om te zetten");
 
-      // Use WeFact's pricequote→invoice conversion
+      // First accept the quote in WeFact (required before conversion)
+      await wefactRequest("pricequote", "accept", {
+        PriceQuoteCode: quote.quote_number,
+      });
+
+      // Then convert to invoice
       const convertResult = await wefactRequest("pricequote", "convertToInvoice", {
         PriceQuoteCode: quote.quote_number,
       });
@@ -603,6 +608,11 @@ Deno.serve(async (req) => {
         .single();
 
       if (!quote?.quote_number) throw new Error("Geen offerte gevonden om om te zetten");
+
+      // First accept the quote in WeFact (required before conversion)
+      await wefactRequest("pricequote", "accept", {
+        PriceQuoteCode: quote.quote_number,
+      });
 
       // Convert pricequote to invoice
       const convertResult = await wefactRequest("pricequote", "convertToInvoice", {
