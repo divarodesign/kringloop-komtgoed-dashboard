@@ -225,6 +225,8 @@ const KlusDetail = () => {
         create_invoice: `Factuur ${data.invoice_number || ""} aangemaakt in WeFact`,
         send_invoice: "Factuur verstuurd via WeFact",
         check_payment: data.is_paid ? "Factuur is betaald! ✅" : "Factuur is nog niet betaald",
+        convert_quote_to_invoice: `Concept factuur ${data.invoice_number || ""} aangemaakt`,
+        convert_quote_and_send: `Factuur ${data.invoice_number || ""} verstuurd naar klant`,
       };
       toast({ title: messages[action] || "Actie uitgevoerd" });
       fetchJob();

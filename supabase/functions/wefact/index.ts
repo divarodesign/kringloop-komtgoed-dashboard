@@ -549,6 +549,100 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Convert quote to concept invoice (no sending)
+    if (action === "convert_quote_to_invoice") {
+      const { data: quote } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("job_id", job_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!quote?.quote_number) throw new Error("Geen offerte gevonden om om te zetten");
+
+      // Use WeFact's pricequote→invoice conversion
+      const convertResult = await wefactRequest("pricequote", "converttoinvoice", {
+        PriceQuoteCode: quote.quote_number,
+      });
+
+      if (convertResult.status !== "success") {
+        throw new Error(convertResult.errors?.[0] || "Offerte kon niet omgezet worden naar factuur");
+      }
+
+      const invoiceNumber = convertResult.invoice?.InvoiceCode || null;
+      const totalAmount = parseFloat(convertResult.invoice?.AmountIncl) || quote.total_amount;
+
+      // Update quote status
+      await supabase.from("quotes").update({ status: "gefactureerd" }).eq("id", quote.id);
+
+      // Create local invoice record
+      await supabase.from("invoices").insert({
+        job_id,
+        invoice_number: invoiceNumber,
+        total_amount: totalAmount,
+        status: "concept",
+      });
+
+      await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", job_id);
+
+      return new Response(
+        JSON.stringify({ success: true, invoice_number: invoiceNumber }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Convert quote to invoice AND send it immediately
+    if (action === "convert_quote_and_send") {
+      const { data: quote } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("job_id", job_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!quote?.quote_number) throw new Error("Geen offerte gevonden om om te zetten");
+
+      // Convert pricequote to invoice
+      const convertResult = await wefactRequest("pricequote", "converttoinvoice", {
+        PriceQuoteCode: quote.quote_number,
+      });
+
+      if (convertResult.status !== "success") {
+        throw new Error(convertResult.errors?.[0] || "Offerte kon niet omgezet worden naar factuur");
+      }
+
+      const invoiceNumber = convertResult.invoice?.InvoiceCode || null;
+      const totalAmount = parseFloat(convertResult.invoice?.AmountIncl) || quote.total_amount;
+
+      if (!invoiceNumber) throw new Error("Factuur aangemaakt maar geen factuurnummer ontvangen");
+
+      // Send the invoice by email
+      await wefactRequest("invoice", "sendbyemail", {
+        InvoiceCode: invoiceNumber,
+      });
+
+      // Update quote status
+      await supabase.from("quotes").update({ status: "gefactureerd" }).eq("id", quote.id);
+
+      // Create local invoice record
+      await supabase.from("invoices").insert({
+        job_id,
+        invoice_number: invoiceNumber,
+        total_amount: totalAmount,
+        status: "verstuurd",
+        sent_at: new Date().toISOString(),
+      });
+
+      await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", job_id);
+
+      return new Response(
+        JSON.stringify({ success: true, invoice_number: invoiceNumber }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("WeFact function error:", err);
