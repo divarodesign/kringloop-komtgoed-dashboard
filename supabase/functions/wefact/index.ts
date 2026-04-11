@@ -124,6 +124,14 @@ function getLinesExclTotal(lines: WefactLine[]): number {
   return roundCurrency(lines.reduce((sum, line) => sum + (toAmount(line.Number) * toAmount(line.PriceExcl)), 0));
 }
 
+// Simulate WeFact's per-line incl calculation: each line's incl = round(Number * PriceExcl * 1.21)
+function getWefactInclTotal(lines: WefactLine[]): number {
+  return lines.reduce((sum, line) => {
+    const lineInclCents = Math.round(toAmount(line.Number) * toAmount(line.PriceExcl) * 121);
+    return sum + lineInclCents;
+  }, 0) / 100;
+}
+
 function getDiscountAmount(job: any, baseAmount: number): number {
   const discountValue = toAmount(job.discount_value);
   if (discountValue <= 0) return 0;
@@ -160,34 +168,37 @@ function getInvoiceTargetTotal(job: any, jobItems: any[], extraSales: any[]): nu
   return roundCurrency(beforeSurcharge * (1 + (toAmount(job.surcharge_percentage) / 100)));
 }
 
-function findCorrectionExclCents(currentExclCents: number, targetInclCents: number): number | null {
-  for (let absDelta = 0; absDelta <= 10000; absDelta++) {
-    const candidates = absDelta === 0 ? [0] : [absDelta, -absDelta];
-    for (const deltaExclCents of candidates) {
-      const adjustedInclCents = Math.round(((currentExclCents + deltaExclCents) * 121) / 100);
-      if (adjustedInclCents === targetInclCents) {
-        return deltaExclCents;
-      }
+function ensureExactTotal(lines: WefactLine[], targetTotalIncl: number): WefactLine[] {
+  const currentInclCents = Math.round(getWefactInclTotal(lines) * 100);
+  const targetInclCents = Math.round(targetTotalIncl * 100);
+  
+  if (currentInclCents === targetInclCents) return lines;
+
+  // Try small corrections to find an excl value whose per-line incl rounds to exactly bridge the gap
+  const diffCents = targetInclCents - currentInclCents;
+  
+  // Search for a PriceExcl correction value where round(corrExcl * 121) = diffCents
+  for (let exclCents = diffCents - 50; exclCents <= diffCents + 50; exclCents++) {
+    const resultInclCents = Math.round((exclCents * 121) / 100);
+    if (resultInclCents === diffCents) {
+      return [
+        ...lines,
+        {
+          Description: "Afrondingscorrectie",
+          Number: 1,
+          PriceExcl: exclCents / 100,
+        },
+      ];
     }
   }
-  return null;
-}
 
-function ensureExactTotal(lines: WefactLine[], targetTotalIncl: number): WefactLine[] {
-  const currentExclCents = Math.round(getLinesExclTotal(lines) * 100);
-  const targetInclCents = Math.round(targetTotalIncl * 100);
-  const correctionExclCents = findCorrectionExclCents(currentExclCents, targetInclCents);
-
-  if (correctionExclCents === null || correctionExclCents === 0) {
-    return lines;
-  }
-
+  // Fallback: use exact diff as excl (should rarely happen)
   return [
     ...lines,
     {
       Description: "Afrondingscorrectie",
       Number: 1,
-      PriceExcl: correctionExclCents / 100,
+      PriceExcl: roundCurrency(diffCents / 121),
     },
   ];
 }
