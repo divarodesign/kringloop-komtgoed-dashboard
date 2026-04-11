@@ -210,11 +210,18 @@ const NieuweKlus = () => {
     }));
   };
 
-  const setRoomProductAbsoluteQuantity = (roomId: string, productId: string, qty: number) => {
+  const setRoomProductAbsoluteQuantity = (roomId: string, productId: string | null, qty: number, index?: number) => {
     setRooms(prev => prev.map(r => {
       if (r.id !== roomId) return r;
-      if (qty <= 0) return { ...r, products: r.products.filter(p => p.product_id !== productId) };
-      return { ...r, products: r.products.map(p => p.product_id === productId ? { ...p, quantity: qty } : p) };
+      if (qty <= 0) return { ...r, products: r.products.filter((p, i) => index !== undefined ? i !== index : p.product_id !== productId) };
+      return { ...r, products: r.products.map((p, i) => (index !== undefined ? i === index : p.product_id === productId) ? { ...p, quantity: qty } : p) };
+    }));
+  };
+
+  const setRoomProductUnitPrice = (roomId: string, index: number, price: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      return { ...r, products: r.products.map((p, i) => i === index ? { ...p, unit_price: price } : p) };
     }));
   };
 
