@@ -1393,7 +1393,7 @@ const NieuweKlus = () => {
             ) : (
               <Button size="sm" onClick={handleSubmit} disabled={submitting}>
                 {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
-                {submitting ? "Bezig..." : isQuoteRequest ? "Offerte versturen" : "Aanmaken"}
+                {submitting ? "Bezig..." : isDirect ? "Aanmaken" : "Offerte versturen"}
               </Button>
             )}
           </div>
