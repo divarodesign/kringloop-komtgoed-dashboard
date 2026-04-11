@@ -185,5 +185,5 @@ export interface Lead {
   updated_at: string;
 }
 
-export type JobStatus = 'concept' | 'nieuw' | 'offerte_verstuurd' | 'in_uitvoering' | 'oplevering' | 'gefactureerd' | 'afgerond';
+export type JobStatus = 'concept' | 'nieuw' | 'offerte_verstuurd' | 'in_uitvoering' | 'oplevering' | 'te_factureren' | 'gefactureerd' | 'afgerond';
 export type JobType = 'producten' | 'ontruiming';
