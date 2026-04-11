@@ -26,7 +26,7 @@ const AdminLayout = () => {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Recycle className="h-4 w-4" />
               </div>
-              <span className="text-sm font-semibold">Komtgoed</span>
+              <span className="text-sm font-semibold">Komt Goed</span>
             </div>
           </header>
           <div className="flex-1 p-3 sm:p-6 overflow-auto pb-20 sm:pb-6">

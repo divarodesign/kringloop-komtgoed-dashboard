@@ -55,7 +55,7 @@ const Login = () => {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
               <Recycle className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold tracking-tight">Kringloop Komtgoed</span>
+            <span className="text-xl font-bold tracking-tight">Kringloop Komt Goed</span>
           </div>
           
           <div className="space-y-6 max-w-md">
@@ -73,7 +73,7 @@ const Login = () => {
             </div>
           </div>
 
-          <p className="text-sm text-white/40">© 2026 Kringloop Komtgoed</p>
+          <p className="text-sm text-white/40">© 2026 Kringloop Komt Goed</p>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ const Login = () => {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Recycle className="h-6 w-6" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Kringloop Komtgoed</span>
+          <span className="text-xl font-bold tracking-tight">Kringloop Komt Goed</span>
         </div>
 
         <div className="w-full max-w-sm space-y-8">
