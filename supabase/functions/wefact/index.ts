@@ -242,6 +242,7 @@ Deno.serve(async (req) => {
         Date: today,
         Description: job.title,
         Term: 30,
+        VatCalcMethod: "incl",
         PriceQuoteLines: lines,
       };
 
@@ -355,6 +356,7 @@ Deno.serve(async (req) => {
 
       const invoiceResult = await wefactRequest("invoice", "add", {
         DebtorCode: debtorCode,
+        VatCalcMethod: "incl",
         InvoiceLines: lines,
       });
 
@@ -381,6 +383,7 @@ Deno.serve(async (req) => {
 
       const invoiceResult = await wefactRequest("invoice", "add", {
         DebtorCode: debtorCode,
+        VatCalcMethod: "incl",
         InvoiceLines: wefactLines,
       });
 
