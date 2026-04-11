@@ -93,13 +93,12 @@ function makeLine(description: string, number: number, priceIncl: number) {
     Description: description,
     Number: number,
     PriceIncl: Math.round(priceIncl * 100) / 100,
-    TaxCode: "H210000",
+    TaxPercentage: "21",
   };
 }
 
-// Helper: create a zero-price line (separator/header)
 function makeZeroLine(description: string) {
-  return { Description: description, Number: 1, PriceIncl: 0, TaxCode: "H210000" };
+  return { Description: description, Number: 1, PriceIncl: 0, TaxPercentage: "21" };
 }
 
 Deno.serve(async (req) => {
