@@ -92,7 +92,7 @@ const Klussen = () => {
   };
 
   const statusFilterOptions = [
-    { key: "all", label: "Alle", count: jobs.length },
+    { key: "all", label: "Alle", count: jobs.filter(j => j.status !== "afgerond").length },
     ...Object.entries(statusLabels).map(([key, label]) => ({
       key, label, count: jobs.filter((j) => j.status === key).length,
     })),
