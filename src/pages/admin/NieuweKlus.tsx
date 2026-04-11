@@ -109,6 +109,9 @@ const NieuweKlus = () => {
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
   const [housingType, setHousingType] = useState("");
+  const [customHousingTypes, setCustomHousingTypes] = useState<string[]>([]);
+  const [addingCustomHousingType, setAddingCustomHousingType] = useState(false);
+  const [customHousingTypeName, setCustomHousingTypeName] = useState("");
   const [conceptJobId, setConceptJobId] = useState<string | null>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [savingConcept, setSavingConcept] = useState(false);
