@@ -1068,7 +1068,21 @@ const KlusDetail = () => {
                   Offerte versturen
                 </Button>
               )}
-              {invoicesData.length === 0 && (
+              {/* When quote is sent: show convert-to-invoice buttons */}
+              {quotes.length > 0 && quotes[0].status === "verstuurd" && invoicesData.length === 0 && (
+                <>
+                  <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("convert_quote_to_invoice")} disabled={!!wefactLoading}>
+                    {wefactLoading === "convert_quote_to_invoice" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1" />}
+                    Concept factuur
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("convert_quote_and_send")} disabled={!!wefactLoading}>
+                    {wefactLoading === "convert_quote_and_send" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                    Factuur versturen
+                  </Button>
+                </>
+              )}
+              {/* Standalone invoice creation (no quote) */}
+              {quotes.length === 0 && invoicesData.length === 0 && (
                 <Button size="sm" variant="outline" className="text-xs" onClick={openInvoicePreview} disabled={!!wefactLoading}>
                   {wefactLoading === "create_invoice" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1" />}
                   Factuur aanmaken
