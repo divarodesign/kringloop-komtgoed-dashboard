@@ -383,6 +383,7 @@ Deno.serve(async (req) => {
 
       const invoiceResult = await wefactRequest("invoice", "add", {
         DebtorCode: debtorCode,
+        VatCalcMethod: "incl",
         InvoiceLines: wefactLines,
       });
 
