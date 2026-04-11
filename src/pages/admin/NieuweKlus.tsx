@@ -579,8 +579,8 @@ const NieuweKlus = () => {
         }
       }
     }
-    // If quote request, automatically create and send quote via WeFact
-    if (isQuoteRequest) {
+    // Always create and send quote via WeFact (both for quote requests and scheduled jobs)
+    if (!isDirect) {
       toast({ title: "Klus aangemaakt, offerte wordt verstuurd..." });
       try {
         const { data: quoteData, error: quoteError } = await supabase.functions.invoke("wefact", {
@@ -602,7 +602,7 @@ const NieuweKlus = () => {
         toast({ title: "Klus aangemaakt, maar offerte versturen mislukt", description: e.message, variant: "destructive" });
       }
     } else {
-    toast({ title: "Klus aangemaakt!" });
+      toast({ title: "Klus aangemaakt!" });
     }
     // Mark lead as converted if applicable
     if (leadId) {
