@@ -87,18 +87,22 @@ async function findOrCreateDebtor(customer: {
   return createResult.debtor?.DebtorCode;
 }
 
-// Helper: create a WeFact line with price inclusive of BTW and 21% tax code
+// Convert price from incl BTW to excl BTW
+function toExcl(priceIncl: number): number {
+  return Math.round((priceIncl / 1.21) * 100) / 100;
+}
+
+// Helper: create a WeFact line — accepts price INCL BTW, sends as PriceExcl to WeFact
 function makeLine(description: string, number: number, priceIncl: number) {
   return {
     Description: description,
     Number: number,
-    PriceIncl: Math.round(priceIncl * 100) / 100,
-    TaxPercentage: "21",
+    PriceExcl: toExcl(priceIncl),
   };
 }
 
 function makeZeroLine(description: string) {
-  return { Description: description, Number: 1, PriceIncl: 0, TaxPercentage: "21" };
+  return { Description: description, Number: 1, PriceExcl: 0 };
 }
 
 Deno.serve(async (req) => {
