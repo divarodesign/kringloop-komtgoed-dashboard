@@ -196,7 +196,7 @@ Deno.serve(async (req) => {
       // Apply surcharge for non-ontruiming (silently increase all line prices)
       if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
         const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
+        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
       }
 
       // For ontruiming: show all items at €0, remove travel/extra cost lines, add single total
@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
 
       const quoteNumber = quoteResult.pricequote?.PriceQuoteCode || null;
       // Total incl BTW for our DB
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * 1.21, 0);
+      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
 
       // Save quote in our DB
       await supabase.from("quotes").insert({
@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
       // Apply surcharge for non-ontruiming
       if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
         const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
+        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
       }
 
       // For ontruiming: show all items at €0, add single total
@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
         lines.length = 0;
         productLinesOnly.forEach((l: any) => lines.push(l));
         
-        lines.forEach((line: any) => { line.PriceExcl = 0; });
+        lines.forEach((line: any) => { line.PriceIncl = 0; });
         
         lines.push(makeZeroLine(" "));
         lines.push(makeLine("Totaalprijs project", 1, totalPriceIncl));
@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * 1.21, 0);
+      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
 
       await supabase.from("invoices").insert({
         job_id,
@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * 1.21, 0);
+      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
 
       await supabase.from("invoices").insert({
         job_id,
