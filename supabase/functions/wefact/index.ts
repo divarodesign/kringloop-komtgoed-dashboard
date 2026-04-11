@@ -541,6 +541,9 @@ Deno.serve(async (req) => {
           status: "betaald",
           paid_at: wefactInvoice.DatePaid || new Date().toISOString(),
         }).eq("id", invoice.id);
+
+        // Mark job as afgerond when paid
+        await supabase.from("jobs").update({ status: "afgerond" }).eq("id", job_id);
       }
 
       return new Response(
