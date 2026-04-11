@@ -66,7 +66,7 @@ export function AdminSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-sidebar-foreground">Kringloop</span>
-            <span className="text-xs text-muted-foreground">Komtgoed</span>
+            <span className="text-xs text-muted-foreground">Komt Goed</span>
           </div>
         </div>
       </SidebarHeader>
