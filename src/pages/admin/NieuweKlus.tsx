@@ -109,6 +109,9 @@ const NieuweKlus = () => {
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [companyAddress, setCompanyAddress] = useState("");
   const [housingType, setHousingType] = useState("");
+  const [customHousingTypes, setCustomHousingTypes] = useState<string[]>([]);
+  const [addingCustomHousingType, setAddingCustomHousingType] = useState(false);
+  const [customHousingTypeName, setCustomHousingTypeName] = useState("");
   const [conceptJobId, setConceptJobId] = useState<string | null>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [savingConcept, setSavingConcept] = useState(false);
@@ -703,6 +706,7 @@ const NieuweKlus = () => {
                   { value: "vrijstaand", label: "Vrijstaand huis" },
                   { value: "zorgkamer", label: "Zorgkamer" },
                   { value: "hoarder", label: "Hoarder" },
+                  ...customHousingTypes.map(ct => ({ value: ct, label: ct })),
                 ].map((type) => (
                   <button
                     key={type.value}
@@ -712,6 +716,52 @@ const NieuweKlus = () => {
                     <p className="text-sm font-medium">{type.label}</p>
                   </button>
                 ))}
+                {addingCustomHousingType ? (
+                  <div className="rounded-xl border-2 border-dashed border-primary p-2 flex items-center gap-1">
+                    <Input
+                      autoFocus
+                      placeholder="Naam..."
+                      value={customHousingTypeName}
+                      onChange={(e) => setCustomHousingTypeName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && customHousingTypeName.trim()) {
+                          const val = customHousingTypeName.trim();
+                          setCustomHousingTypes(prev => [...prev, val]);
+                          setHousingType(val);
+                          setCustomHousingTypeName("");
+                          setAddingCustomHousingType(false);
+                        } else if (e.key === "Escape") {
+                          setAddingCustomHousingType(false);
+                          setCustomHousingTypeName("");
+                        }
+                      }}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        if (customHousingTypeName.trim()) {
+                          const val = customHousingTypeName.trim();
+                          setCustomHousingTypes(prev => [...prev, val]);
+                          setHousingType(val);
+                          setCustomHousingTypeName("");
+                          setAddingCustomHousingType(false);
+                        }
+                      }}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingCustomHousingType(true)}
+                    className="rounded-xl border-2 border-dashed border-muted-foreground/30 p-3 text-center transition-all touch-manipulation active:scale-[0.97] hover:border-primary/50"
+                  >
+                    <p className="text-sm font-medium text-muted-foreground flex items-center justify-center gap-1"><Plus className="h-4 w-4" /> Eigen type</p>
+                  </button>
+                )}
               </div>
             </div>
 
