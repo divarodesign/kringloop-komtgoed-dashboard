@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen, Camera, X, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Minus, Trash2, Check, MapPin, Loader2, Search, Package, ChevronDown, ChevronRight, Pencil, DoorOpen, Camera, X, Save, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { icons } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AddressFields from "@/components/AddressFields";
@@ -673,10 +675,33 @@ const NieuweKlus = () => {
             ) : (
               <div className="grid gap-1.5">
                 <Label className="text-xs">Bestaande klant *</Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger><SelectValue placeholder="Selecteer klant" /></SelectTrigger>
-                  <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      {customerId ? customers.find(c => c.id === customerId)?.name : "Selecteer klant"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Zoek klant op naam..." />
+                      <CommandList>
+                        <CommandEmpty>Geen klant gevonden.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((c) => (
+                            <CommandItem key={c.id} value={c.name} onSelect={() => setCustomerId(c.id)}>
+                              <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? "opacity-100" : "opacity-0"}`} />
+                              <div>
+                                <p className="text-sm">{c.name}</p>
+                                {c.city && <p className="text-xs text-muted-foreground">{c.city}</p>}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </CardContent>
