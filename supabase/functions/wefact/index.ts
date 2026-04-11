@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
+      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * 1.21, 0);
 
       await supabase.from("invoices").insert({
         job_id,
