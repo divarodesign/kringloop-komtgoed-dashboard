@@ -1095,12 +1095,6 @@ const KlusDetail = () => {
                   Factuur versturen
                 </Button>
               )}
-              {invoicesData.length > 0 && invoicesData[0].status !== "betaald" && (
-                <Button size="sm" variant="outline" className="text-xs" onClick={() => handleWefactAction("check_payment")} disabled={!!wefactLoading}>
-                  {wefactLoading === "check_payment" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
-                  Betaalstatus checken
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
