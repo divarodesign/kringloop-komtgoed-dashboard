@@ -208,7 +208,8 @@ Deno.serve(async (req) => {
       if (job.job_type === "ontruiming") {
         const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
         const surcharge = job.surcharge_percentage || 0;
-        const totalPriceIncl = (job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0))) * (1 + surcharge / 100);
+        const basePrice = job.custom_price || itemsTotal;
+        const totalPriceIncl = (basePrice + (job.travel_cost || 0) + (job.extra_costs || 0)) * (1 + surcharge / 100);
         
         // Rebuild lines for ontruiming: quantity in description, all prices €0
         lines.length = 0;
@@ -318,7 +319,8 @@ Deno.serve(async (req) => {
       if (job.job_type === "ontruiming") {
         const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
         const surcharge = job.surcharge_percentage || 0;
-        const totalPriceIncl = (job.custom_price || (itemsTotal + (job.travel_cost || 0) + (job.extra_costs || 0))) * (1 + surcharge / 100);
+        const basePrice = job.custom_price || itemsTotal;
+        const totalPriceIncl = (basePrice + (job.travel_cost || 0) + (job.extra_costs || 0)) * (1 + surcharge / 100);
         
         const productLinesOnly = lines.filter((line: any) => 
           !line.Description.startsWith("Voorrijkosten") && 
