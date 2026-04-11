@@ -638,6 +638,7 @@ const KlusDetail = () => {
           offerte_geweigerd: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300",
           in_uitvoering: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300",
           oplevering: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300",
+          te_factureren: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300",
           gefactureerd: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300",
           afgerond: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300",
         };

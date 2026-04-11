@@ -78,6 +78,7 @@ const Klussen = () => {
   };
 
   const filtered = jobs.filter((j) => {
+    if (j.status === "afgerond") return false;
     const matchSearch = [j.title, j.customers?.name, j.work_city, j.work_address].some((v) => v?.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === "all" || j.status === statusFilter;
     return matchSearch && matchStatus;
