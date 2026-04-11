@@ -24,7 +24,7 @@ import type { Job, JobItem, Profile, Delivery, DeliveryPhoto } from "@/types/dat
 const statusLabels: Record<string, string> = {
   nieuw: "Nieuw", offerte_verstuurd: "Offerte verstuurd", offerte_geaccepteerd: "Offerte geaccepteerd",
   offerte_geweigerd: "Offerte geweigerd", in_uitvoering: "In uitvoering",
-  oplevering: "Oplevering", gefactureerd: "Gefactureerd", afgerond: "Afgerond",
+  oplevering: "Oplevering", te_factureren: "Te factureren", gefactureerd: "Gefactureerd", afgerond: "Afgerond",
 };
 
 const KlusDetail = () => {
@@ -340,7 +340,7 @@ const KlusDetail = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      await supabase.from("jobs").update({ status: "in_uitvoering" }).eq("id", id!);
+      await supabase.from("jobs").update({ status: "te_factureren" }).eq("id", id!);
 
       toast({ title: "Oplevering voltooid! PDF is gegenereerd." });
       fetchJob();

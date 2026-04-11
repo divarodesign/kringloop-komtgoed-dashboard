@@ -18,8 +18,8 @@ const statusLabels: Record<string, string> = {
   offerte_verstuurd: "Offerte verstuurd",
   in_uitvoering: "In uitvoering",
   oplevering: "Oplevering",
+  te_factureren: "Te factureren",
   gefactureerd: "Gefactureerd",
-  afgerond: "Afgerond",
 };
 
 const statusColors: Record<string, string> = {
@@ -28,8 +28,8 @@ const statusColors: Record<string, string> = {
   offerte_verstuurd: "bg-amber-100 text-amber-700",
   in_uitvoering: "bg-primary/10 text-primary",
   oplevering: "bg-purple-100 text-purple-700",
+  te_factureren: "bg-rose-100 text-rose-700",
   gefactureerd: "bg-orange-100 text-orange-700",
-  afgerond: "bg-emerald-100 text-emerald-700",
 };
 
 const formatPrice = (p: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(p);
