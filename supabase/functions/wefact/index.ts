@@ -511,6 +511,7 @@ Deno.serve(async (req) => {
       });
 
       await supabase.from("invoices").update({ status: "verstuurd", sent_at: new Date().toISOString() }).eq("id", invoice.id);
+      await supabase.from("jobs").update({ status: "afgerond" }).eq("id", job_id);
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -541,9 +542,6 @@ Deno.serve(async (req) => {
           status: "betaald",
           paid_at: wefactInvoice.DatePaid || new Date().toISOString(),
         }).eq("id", invoice.id);
-
-        // Mark job as afgerond when paid
-        await supabase.from("jobs").update({ status: "afgerond" }).eq("id", job_id);
       }
 
       return new Response(
@@ -632,7 +630,7 @@ Deno.serve(async (req) => {
         sent_at: new Date().toISOString(),
       });
 
-      await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", job_id);
+      await supabase.from("jobs").update({ status: "afgerond" }).eq("id", job_id);
 
       return new Response(
         JSON.stringify({ success: true, invoice_number: invoiceNumber }),
