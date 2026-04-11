@@ -87,17 +87,109 @@ async function findOrCreateDebtor(customer: {
   return createResult.debtor?.DebtorCode;
 }
 
-// Helper: create a WeFact line with price INCL BTW — sent as PriceIncl with VatCalcMethod "incl"
-function makeLine(description: string, number: number, priceIncl: number) {
+const VAT_RATE = 1.21;
+
+type WefactLine = {
+  Description: string;
+  Number: number;
+  PriceExcl: number;
+};
+
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function toAmount(value: unknown): number {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function toExcl(priceIncl: number): number {
+  return roundCurrency(priceIncl / VAT_RATE);
+}
+
+function makeLine(description: string, number: number, priceIncl: number): WefactLine {
   return {
     Description: description,
     Number: number,
-    PriceIncl: Math.round(priceIncl * 100) / 100,
+    PriceExcl: toExcl(priceIncl),
   };
 }
 
-function makeZeroLine(description: string) {
-  return { Description: description, Number: 1, PriceIncl: 0 };
+function makeZeroLine(description: string): WefactLine {
+  return { Description: description, Number: 1, PriceExcl: 0 };
+}
+
+function getLinesExclTotal(lines: WefactLine[]): number {
+  return roundCurrency(lines.reduce((sum, line) => sum + (toAmount(line.Number) * toAmount(line.PriceExcl)), 0));
+}
+
+function getDiscountAmount(job: any, baseAmount: number): number {
+  const discountValue = toAmount(job.discount_value);
+  if (discountValue <= 0) return 0;
+  return job.discount_type === "percentage"
+    ? baseAmount * (discountValue / 100)
+    : discountValue;
+}
+
+function getItemsTotal(jobItems: any[]): number {
+  return roundCurrency((jobItems || []).reduce((sum: number, item: any) => sum + (toAmount(item.quantity) * toAmount(item.unit_price)), 0));
+}
+
+function getJobSubtotal(job: any, jobItems: any[]): number {
+  const itemsTotal = getItemsTotal(jobItems);
+  return job.job_type === "ontruiming"
+    ? toAmount(job.custom_price ?? job.advised_price ?? itemsTotal)
+    : itemsTotal;
+}
+
+function getQuoteTargetTotal(job: any, jobItems: any[]): number {
+  const subtotal = getJobSubtotal(job, jobItems);
+  const baseAmount = subtotal + toAmount(job.travel_cost) + toAmount(job.extra_costs);
+  const discountAmount = getDiscountAmount(job, baseAmount);
+  const beforeSurcharge = baseAmount - discountAmount;
+  return roundCurrency(beforeSurcharge * (1 + (toAmount(job.surcharge_percentage) / 100)));
+}
+
+function getInvoiceTargetTotal(job: any, jobItems: any[], extraSales: any[]): number {
+  const subtotal = getJobSubtotal(job, jobItems);
+  const extraSalesTotal = roundCurrency((extraSales || []).reduce((sum: number, sale: any) => sum + toAmount(sale.amount), 0));
+  const baseAmount = subtotal + toAmount(job.travel_cost) + toAmount(job.extra_costs);
+  const discountAmount = getDiscountAmount(job, baseAmount);
+  const beforeSurcharge = baseAmount + extraSalesTotal - discountAmount;
+  return roundCurrency(beforeSurcharge * (1 + (toAmount(job.surcharge_percentage) / 100)));
+}
+
+function findCorrectionExclCents(currentExclCents: number, targetInclCents: number): number | null {
+  for (let absDelta = 0; absDelta <= 10000; absDelta++) {
+    const candidates = absDelta === 0 ? [0] : [absDelta, -absDelta];
+    for (const deltaExclCents of candidates) {
+      const adjustedInclCents = Math.round(((currentExclCents + deltaExclCents) * 121) / 100);
+      if (adjustedInclCents === targetInclCents) {
+        return deltaExclCents;
+      }
+    }
+  }
+  return null;
+}
+
+function ensureExactTotal(lines: WefactLine[], targetTotalIncl: number): WefactLine[] {
+  const currentExclCents = Math.round(getLinesExclTotal(lines) * 100);
+  const targetInclCents = Math.round(targetTotalIncl * 100);
+  const correctionExclCents = findCorrectionExclCents(currentExclCents, targetInclCents);
+
+  if (correctionExclCents === null || correctionExclCents === 0) {
+    return lines;
+  }
+
+  return [
+    ...lines,
+    {
+      Description: "Afrondingscorrectie",
+      Number: 1,
+      PriceExcl: correctionExclCents / 100,
+    },
+  ];
 }
 
 Deno.serve(async (req) => {
@@ -154,6 +246,14 @@ Deno.serve(async (req) => {
     const debtorCode = await findOrCreateDebtor(customer);
 
     if (action === "create_quote") {
+      const quoteTargetTotalIncl = getQuoteTargetTotal(job, jobItems || []);
+      const subtotal = getJobSubtotal(job, jobItems || []);
+      const travelCost = toAmount(job.travel_cost);
+      const extraCosts = toAmount(job.extra_costs);
+      const surchargePercentage = toAmount(job.surcharge_percentage);
+      const discountBase = subtotal + travelCost + extraCosts;
+      const discountAmount = roundCurrency(getDiscountAmount(job, discountBase));
+
       // Group items by room
       const roomGroups: Record<string, any[]> = {};
       (jobItems || []).forEach((item: any) => {
@@ -162,53 +262,11 @@ Deno.serve(async (req) => {
         roomGroups[room].push(item);
       });
 
-      const lines: any[] = [];
+      const lines: WefactLine[] = [];
       const roomNames = Object.keys(roomGroups);
       const hasRooms = roomNames.length > 1 || (roomNames.length === 1 && roomNames[0] !== "Overig");
 
-      if (hasRooms) {
-        for (let ri = 0; ri < roomNames.length; ri++) {
-          const roomName = roomNames[ri];
-          if (ri > 0) {
-            lines.push(makeZeroLine(" "));
-          }
-          lines.push(makeZeroLine(`=== ${roomName.toUpperCase()} ===`));
-          for (const item of roomGroups[roomName]) {
-            lines.push(makeLine(`  ${item.description}`, item.quantity, item.unit_price));
-          }
-        }
-      } else {
-        for (const item of (jobItems || [])) {
-          lines.push(makeLine((item as any).description, (item as any).quantity, (item as any).unit_price));
-        }
-      }
-
-      // Add travel cost
-      if (job.travel_cost > 0) {
-        lines.push(makeLine(`Voorrijkosten (${job.travel_distance_km || 0} km)`, 1, job.travel_cost));
-      }
-
-      // Add extra costs
-      if ((job.extra_costs || 0) > 0) {
-        lines.push(makeLine(job.extra_costs_description || "Overige kosten", 1, job.extra_costs));
-      }
-
-      // Apply surcharge for non-ontruiming (silently increase all line prices)
-      if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
-        const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
-      }
-
-      // For ontruiming: show all items at €0, remove travel/extra cost lines, add single total
       if (job.job_type === "ontruiming") {
-        const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-        const surcharge = job.surcharge_percentage || 0;
-        const basePrice = job.custom_price || itemsTotal;
-        const totalPriceIncl = (basePrice + (job.travel_cost || 0) + (job.extra_costs || 0)) * (1 + surcharge / 100);
-        
-        // Rebuild lines for ontruiming: quantity in description, all prices €0
-        lines.length = 0;
-        
         if (hasRooms) {
           for (let ri = 0; ri < roomNames.length; ri++) {
             const roomName = roomNames[ri];
@@ -225,10 +283,49 @@ Deno.serve(async (req) => {
             lines.push(makeZeroLine(`${(item as any).quantity}x ${(item as any).description}`));
           }
         }
-        
+
         lines.push(makeZeroLine(" "));
-        lines.push(makeLine("Totaalprijs project", 1, totalPriceIncl));
+        lines.push(makeLine("Totaalprijs project", 1, quoteTargetTotalIncl));
+      } else {
+        if (hasRooms) {
+          for (let ri = 0; ri < roomNames.length; ri++) {
+            const roomName = roomNames[ri];
+            if (ri > 0) {
+              lines.push(makeZeroLine(" "));
+            }
+            lines.push(makeZeroLine(`=== ${roomName.toUpperCase()} ===`));
+            for (const item of roomGroups[roomName]) {
+              lines.push(makeLine(`  ${item.description}`, item.quantity, item.unit_price));
+            }
+          }
+        } else {
+          for (const item of (jobItems || [])) {
+            lines.push(makeLine((item as any).description, (item as any).quantity, (item as any).unit_price));
+          }
+        }
+
+        if (travelCost > 0) {
+          lines.push(makeLine(`Voorrijkosten (${job.travel_distance_km || 0} km)`, 1, travelCost));
+        }
+
+        if (extraCosts > 0) {
+          lines.push(makeLine(job.extra_costs_description || "Overige kosten", 1, extraCosts));
+        }
+
+        if (discountAmount > 0) {
+          lines.push(makeLine(`Korting${job.discount_type === "percentage" ? ` (${job.discount_value}%)` : ""}`, 1, -discountAmount));
+        }
+
+        if (surchargePercentage > 0) {
+          const visibleBeforeSurcharge = roundCurrency(discountBase - discountAmount);
+          const surchargeAmount = roundCurrency(quoteTargetTotalIncl - visibleBeforeSurcharge);
+          if (Math.abs(surchargeAmount) >= 0.005) {
+            lines.push(makeLine(`Toeslag (${job.surcharge_percentage}%)`, 1, surchargeAmount));
+          }
+        }
       }
+
+      const finalLines = ensureExactTotal(lines, quoteTargetTotalIncl);
 
       // Build pricequote params
       const today = new Date().toISOString().split("T")[0];
@@ -238,27 +335,18 @@ Deno.serve(async (req) => {
         Description: job.title,
         Term: 30,
         VatCalcMethod: "incl",
-        PriceQuoteLines: lines,
+        PriceQuoteLines: finalLines,
       };
-
-      // Apply discount at quote level if percentage
-      if (job.discount_value && job.discount_value > 0 && job.discount_type === "percentage") {
-        quoteParams.Discount = job.discount_value;
-      } else if (job.discount_value && job.discount_value > 0 && job.discount_type === "fixed") {
-        lines.push(makeLine("Korting", 1, -job.discount_value));
-      }
 
       const quoteResult = await wefactRequest("pricequote", "add", quoteParams);
 
       const quoteNumber = quoteResult.pricequote?.PriceQuoteCode || null;
-      // Total incl BTW for our DB
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
 
       // Save quote in our DB
       await supabase.from("quotes").insert({
         job_id,
         quote_number: quoteNumber,
-        total_amount: Math.round(totalAmount * 100) / 100,
+        total_amount: quoteTargetTotalIncl,
         status: "concept",
       });
 
@@ -295,73 +383,68 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create_invoice") {
-      // Build invoice lines
-      const lines = (jobItems || []).map((item: any) => makeLine(item.description, item.quantity, item.unit_price));
-
-      if (job.travel_cost > 0) {
-        lines.push(makeLine(`Voorrijkosten (${job.travel_distance_km || 0} km)`, 1, job.travel_cost));
-      }
-      if ((job.extra_costs || 0) > 0) {
-        lines.push(makeLine(job.extra_costs_description || "Overige kosten", 1, job.extra_costs));
-      }
-
-      // Apply surcharge for non-ontruiming
-      if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
-        const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
-      }
-
-      // For ontruiming: show all items at €0, add single total
-      if (job.job_type === "ontruiming") {
-        const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-        const surcharge = job.surcharge_percentage || 0;
-        const basePrice = job.custom_price || itemsTotal;
-        const totalPriceIncl = (basePrice + (job.travel_cost || 0) + (job.extra_costs || 0)) * (1 + surcharge / 100);
-        
-        const productLinesOnly = lines.filter((line: any) => 
-          !line.Description.startsWith("Voorrijkosten") && 
-          line.Description !== (job.extra_costs_description || "Overige kosten")
-        );
-        lines.length = 0;
-        productLinesOnly.forEach((l: any) => lines.push(l));
-        
-        lines.forEach((line: any) => { line.PriceIncl = 0; });
-        
-        lines.push(makeZeroLine(" "));
-        lines.push(makeLine("Totaalprijs project", 1, totalPriceIncl));
-      }
-
-      // Extra sales
       const { data: extraSales } = await supabase.from("extra_sales").select("*").eq("job_id", job_id);
-      (extraSales || []).forEach((es: any) => {
-        lines.push(makeLine(`Bijverkoop: ${es.description}`, 1, es.amount));
-      });
+      const invoiceTargetTotalIncl = getInvoiceTargetTotal(job, jobItems || [], extraSales || []);
+      const subtotal = getJobSubtotal(job, jobItems || []);
+      const travelCost = toAmount(job.travel_cost);
+      const extraCosts = toAmount(job.extra_costs);
+      const surchargePercentage = toAmount(job.surcharge_percentage);
+      const extraSalesTotal = roundCurrency((extraSales || []).reduce((sum: number, sale: any) => sum + toAmount(sale.amount), 0));
+      const discountBase = subtotal + travelCost + extraCosts;
+      const discountAmount = roundCurrency(getDiscountAmount(job, discountBase));
 
-      // Discount
-      if (job.discount_value && job.discount_value > 0) {
-        const itemsTotal = (jobItems || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-        const subtotal = job.job_type === "ontruiming" ? (job.custom_price || job.advised_price || itemsTotal) : itemsTotal;
-        const discountAmount = job.discount_type === "percentage"
-          ? (subtotal + job.travel_cost + (job.extra_costs || 0)) * (job.discount_value / 100)
-          : job.discount_value;
+      const lines: WefactLine[] = [];
+
+      if (job.job_type === "ontruiming") {
+        for (const item of (jobItems || [])) {
+          lines.push(makeZeroLine(`${(item as any).quantity}x ${(item as any).description}`));
+        }
+        lines.push(makeZeroLine(" "));
+        lines.push(makeLine("Totaalprijs project", 1, invoiceTargetTotalIncl));
+      } else {
+        for (const item of (jobItems || [])) {
+          lines.push(makeLine(item.description, item.quantity, item.unit_price));
+        }
+
+        if (travelCost > 0) {
+          lines.push(makeLine(`Voorrijkosten (${job.travel_distance_km || 0} km)`, 1, travelCost));
+        }
+
+        if (extraCosts > 0) {
+          lines.push(makeLine(job.extra_costs_description || "Overige kosten", 1, extraCosts));
+        }
+
+        (extraSales || []).forEach((sale: any) => {
+          lines.push(makeLine(`Bijverkoop: ${sale.description}`, 1, sale.amount));
+        });
+
         if (discountAmount > 0) {
           lines.push(makeLine(`Korting${job.discount_type === "percentage" ? ` (${job.discount_value}%)` : ""}`, 1, -discountAmount));
         }
+
+        if (surchargePercentage > 0) {
+          const visibleBeforeSurcharge = roundCurrency(discountBase + extraSalesTotal - discountAmount);
+          const surchargeAmount = roundCurrency(invoiceTargetTotalIncl - visibleBeforeSurcharge);
+          if (Math.abs(surchargeAmount) >= 0.005) {
+            lines.push(makeLine(`Toeslag (${job.surcharge_percentage}%)`, 1, surchargeAmount));
+          }
+        }
       }
+
+      const finalLines = ensureExactTotal(lines, invoiceTargetTotalIncl);
 
       const invoiceResult = await wefactRequest("invoice", "add", {
         DebtorCode: debtorCode,
         VatCalcMethod: "incl",
-        InvoiceLines: lines,
+        InvoiceLines: finalLines,
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
 
       await supabase.from("invoices").insert({
         job_id,
         invoice_number: invoiceNumber,
-        total_amount: Math.round(totalAmount * 100) / 100,
+        total_amount: invoiceTargetTotalIncl,
         status: "onbetaald",
       });
 
@@ -374,21 +457,22 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create_invoice_custom") {
-      const wefactLines = (customInvoiceLines || []).map((l: any) => makeLine(l.description, l.quantity, l.price));
+      const wefactLines: WefactLine[] = (customInvoiceLines || []).map((line: any) => makeLine(line.description, line.quantity, line.price));
+      const targetTotalIncl = roundCurrency((customInvoiceLines || []).reduce((sum: number, line: any) => sum + (toAmount(line.quantity) * toAmount(line.price)), 0));
+      const finalLines = ensureExactTotal(wefactLines, targetTotalIncl);
 
       const invoiceResult = await wefactRequest("invoice", "add", {
         DebtorCode: debtorCode,
         VatCalcMethod: "incl",
-        InvoiceLines: wefactLines,
+        InvoiceLines: finalLines,
       });
 
       const invoiceNumber = invoiceResult.invoice?.InvoiceCode || null;
-      const totalAmount = wefactLines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
 
       await supabase.from("invoices").insert({
         job_id,
         invoice_number: invoiceNumber,
-        total_amount: Math.round(totalAmount * 100) / 100,
+        total_amount: targetTotalIncl,
         status: "onbetaald",
       });
 
