@@ -675,10 +675,33 @@ const NieuweKlus = () => {
             ) : (
               <div className="grid gap-1.5">
                 <Label className="text-xs">Bestaande klant *</Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger><SelectValue placeholder="Selecteer klant" /></SelectTrigger>
-                  <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      {customerId ? customers.find(c => c.id === customerId)?.name : "Selecteer klant"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Zoek klant op naam..." />
+                      <CommandList>
+                        <CommandEmpty>Geen klant gevonden.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((c) => (
+                            <CommandItem key={c.id} value={c.name} onSelect={() => setCustomerId(c.id)}>
+                              <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? "opacity-100" : "opacity-0"}`} />
+                              <div>
+                                <p className="text-sm">{c.name}</p>
+                                {c.city && <p className="text-xs text-muted-foreground">{c.city}</p>}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </CardContent>
