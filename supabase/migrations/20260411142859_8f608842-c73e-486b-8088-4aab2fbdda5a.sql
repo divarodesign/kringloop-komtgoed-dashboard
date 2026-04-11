@@ -1,0 +1,1 @@
+DELETE FROM quotes WHERE id = '1dbb1d68-d58b-4bf0-b21a-0abcfa4229aa';
