@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       // Apply surcharge for non-ontruiming (silently increase all line prices)
       if (job.job_type !== "ontruiming" && (job.surcharge_percentage || 0) > 0) {
         const factor = 1 + (job.surcharge_percentage / 100);
-        lines.forEach((line: any) => { line.PriceIncl = Math.round(line.PriceIncl * factor * 100) / 100; });
+        lines.forEach((line: any) => { line.PriceExcl = Math.round(line.PriceExcl * factor * 100) / 100; });
       }
 
       // For ontruiming: show all items at €0, remove travel/extra cost lines, add single total
@@ -254,8 +254,8 @@ Deno.serve(async (req) => {
       const quoteResult = await wefactRequest("pricequote", "add", quoteParams);
 
       const quoteNumber = quoteResult.pricequote?.PriceQuoteCode || null;
-      // Total is the sum of all PriceIncl values (already incl BTW)
-      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceIncl || 0), 0);
+      // Total incl BTW for our DB
+      const totalAmount = lines.reduce((s: number, l: any) => s + l.Number * (l.PriceExcl || 0) * 1.21, 0);
 
       // Save quote in our DB
       await supabase.from("quotes").insert({
