@@ -9,9 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
-  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed, PhoneForwarded
+  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed, PhoneForwarded, MessageSquare, Save
 } from "lucide-react";
 
 interface LeadRoom {
@@ -33,6 +34,7 @@ interface Lead {
   status: "nieuw" | "omgezet" | "afgewezen";
   job_id: string | null;
   notes: string | null;
+  internal_notes: string | null;
   contact_statuses: string[];
   is_viewed: boolean;
   created_at: string;
