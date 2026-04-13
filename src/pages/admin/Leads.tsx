@@ -9,9 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Eye, ArrowRightCircle, XCircle, Search, Inbox, Home, Calendar,
-  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed, PhoneForwarded
+  Image, ChevronRight, ChevronLeft, Phone, Mail, MapPin, X, Trash2, PhoneCall, PhoneMissed, PhoneForwarded, MessageSquare, Save
 } from "lucide-react";
 
 interface LeadRoom {
@@ -33,6 +34,7 @@ interface Lead {
   status: "nieuw" | "omgezet" | "afgewezen";
   job_id: string | null;
   notes: string | null;
+  internal_notes: string | null;
   contact_statuses: string[];
   is_viewed: boolean;
   created_at: string;
@@ -177,6 +179,22 @@ export default function Leads() {
 
   const DetailContent = ({ lead }: { lead: Lead }) => {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
+    const [internalNotes, setInternalNotes] = useState(lead.internal_notes || "");
+    const [savingNotes, setSavingNotes] = useState(false);
+
+    const saveInternalNotes = async () => {
+      setSavingNotes(true);
+      const { error } = await supabase.from("leads").update({ internal_notes: internalNotes } as any).eq("id", lead.id);
+      setSavingNotes(false);
+      if (error) {
+        toast({ title: "Fout", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Notitie opgeslagen" });
+        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, internal_notes: internalNotes } : l));
+        if (selectedLead?.id === lead.id) setSelectedLead({ ...lead, internal_notes: internalNotes });
+      }
+    };
+
     return (
       <div className="space-y-4 pb-6">
         {/* Contact status buttons */}
@@ -292,10 +310,34 @@ export default function Leads() {
 
         {cleanNotes && (
           <div className="p-3 rounded-xl border bg-card">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notities</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notities klant</p>
             <p className="text-sm">{cleanNotes}</p>
           </div>
         )}
+
+        {/* Interne notities */}
+        <div className="p-3 rounded-xl border bg-card space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Interne notities
+          </p>
+          <Textarea
+            placeholder="Voeg een notitie toe over wat er besproken is..."
+            value={internalNotes}
+            onChange={e => setInternalNotes(e.target.value)}
+            className="min-h-[80px] text-sm"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={saveInternalNotes}
+            disabled={savingNotes || internalNotes === (lead.internal_notes || "")}
+            className="w-full"
+          >
+            <Save className="mr-2 h-3.5 w-3.5" />
+            {savingNotes ? "Opslaan..." : "Notitie opslaan"}
+          </Button>
+        </div>
 
         {photos.length > 0 && (
           <div>

@@ -443,6 +443,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          internal_notes: string | null
           is_viewed: boolean
           job_id: string | null
           name: string
@@ -461,6 +462,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          internal_notes?: string | null
           is_viewed?: boolean
           job_id?: string | null
           name: string
@@ -479,6 +481,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          internal_notes?: string | null
           is_viewed?: boolean
           job_id?: string | null
           name?: string
