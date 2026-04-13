@@ -410,6 +410,19 @@ const NieuweKlus = () => {
         setAdvisedPrice(Number(lead.advised_price));
       }
       setTitle(`Ontruiming ${lead.name}`);
+      // Prefill description from internal notes + parsed notes
+      const noteParts: string[] = [];
+      if ((lead as any).internal_notes) noteParts.push((lead as any).internal_notes);
+      if (lead.notes) {
+        // Extract clean notes (strip woningtype/datum/photos metadata)
+        let cleanNotes = lead.notes;
+        cleanNotes = cleanNotes.replace(/Woningtype:\s*[^\s]+(?:\s+[^\s]+)*?(?=\s+Gewenste datum:|\s+Foto's:|$)/, "");
+        cleanNotes = cleanNotes.replace(/Gewenste datum:\s*\d{4}-\d{2}-\d{2}/, "");
+        cleanNotes = cleanNotes.replace(/Foto's:\s*[\s\S]*$/, "");
+        cleanNotes = cleanNotes.trim();
+        if (cleanNotes) noteParts.push(cleanNotes);
+      }
+      if (noteParts.length > 0) setDescription(noteParts.join("\n\n"));
     };
     loadLead();
   }, [searchParams]);
