@@ -179,6 +179,22 @@ export default function Leads() {
 
   const DetailContent = ({ lead }: { lead: Lead }) => {
     const { cleanNotes, woningtype, gewensteDatum, photos } = parseNotes(lead.notes);
+    const [internalNotes, setInternalNotes] = useState(lead.internal_notes || "");
+    const [savingNotes, setSavingNotes] = useState(false);
+
+    const saveInternalNotes = async () => {
+      setSavingNotes(true);
+      const { error } = await supabase.from("leads").update({ internal_notes: internalNotes } as any).eq("id", lead.id);
+      setSavingNotes(false);
+      if (error) {
+        toast({ title: "Fout", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Notitie opgeslagen" });
+        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, internal_notes: internalNotes } : l));
+        if (selectedLead?.id === lead.id) setSelectedLead({ ...lead, internal_notes: internalNotes });
+      }
+    };
+
     return (
       <div className="space-y-4 pb-6">
         {/* Contact status buttons */}
