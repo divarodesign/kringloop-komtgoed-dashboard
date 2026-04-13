@@ -310,10 +310,34 @@ export default function Leads() {
 
         {cleanNotes && (
           <div className="p-3 rounded-xl border bg-card">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notities</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notities klant</p>
             <p className="text-sm">{cleanNotes}</p>
           </div>
         )}
+
+        {/* Interne notities */}
+        <div className="p-3 rounded-xl border bg-card space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Interne notities
+          </p>
+          <Textarea
+            placeholder="Voeg een notitie toe over wat er besproken is..."
+            value={internalNotes}
+            onChange={e => setInternalNotes(e.target.value)}
+            className="min-h-[80px] text-sm"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={saveInternalNotes}
+            disabled={savingNotes || internalNotes === (lead.internal_notes || "")}
+            className="w-full"
+          >
+            <Save className="mr-2 h-3.5 w-3.5" />
+            {savingNotes ? "Opslaan..." : "Notitie opslaan"}
+          </Button>
+        </div>
 
         {photos.length > 0 && (
           <div>
