@@ -83,44 +83,13 @@ Deno.serve(async (req) => {
           await supabase.from("quotes").update({ status: newStatus }).eq("id", quote.id);
           quotesUpdated++;
 
-          // If quote was accepted or converted to invoice, update job status
-          if (newStatus === "geaccepteerd" || newStatus === "gefactureerd") {
+          // If quote was accepted, update job status
+          if (newStatus === "geaccepteerd") {
             await supabase.from("jobs").update({ status: "offerte_geaccepteerd" }).eq("id", quote.job_id);
           }
           // If quote was declined
           if (newStatus === "geweigerd") {
             await supabase.from("jobs").update({ status: "offerte_geweigerd" }).eq("id", quote.job_id);
-          }
-
-          // If quote was converted to invoice in WeFact, create local invoice record
-          if (newStatus === "gefactureerd" && result.pricequote.InvoiceCode) {
-            // Check if we already have this invoice
-            const { data: existing } = await supabase
-              .from("invoices")
-              .select("id")
-              .eq("invoice_number", result.pricequote.InvoiceCode)
-              .limit(1);
-
-            if (!existing || existing.length === 0) {
-              // Fetch invoice details from WeFact
-              const invResult = await wefactRequest(apiKey, "invoice", "show", {
-                InvoiceCode: result.pricequote.InvoiceCode,
-              });
-              if (invResult.status === "success" && invResult.invoice) {
-                const inv = invResult.invoice;
-                const invStatus = INVOICE_STATUS_MAP[String(inv.Status)] || "onbetaald";
-                await supabase.from("invoices").insert({
-                  job_id: quote.job_id,
-                  invoice_number: inv.InvoiceCode,
-                  total_amount: parseFloat(inv.AmountIncl) || 0,
-                  status: invStatus,
-                  sent_at: inv.DateSent || null,
-                  paid_at: invStatus === "betaald" ? (inv.DatePaid || new Date().toISOString()) : null,
-                });
-                await supabase.from("jobs").update({ status: "gefactureerd" }).eq("id", quote.job_id);
-                invoicesUpdated++;
-              }
-            }
           }
         }
       } catch (e) {
