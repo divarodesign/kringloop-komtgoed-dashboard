@@ -538,9 +538,9 @@ const Agenda = () => {
                     postalCode={customerForm.postal_code}
                     address={customerForm.address}
                     city={customerForm.city}
-                    onPostalCodeChange={(v) => setCustomerForm({ ...customerForm, postal_code: v })}
-                    onAddressChange={(v) => setCustomerForm({ ...customerForm, address: v })}
-                    onCityChange={(v) => setCustomerForm({ ...customerForm, city: v })}
+                    onPostalCodeChange={(v) => setCustomerForm((prev) => ({ ...prev, postal_code: v }))}
+                    onAddressChange={(v) => setCustomerForm((prev) => ({ ...prev, address: v }))}
+                    onCityChange={(v) => setCustomerForm((prev) => ({ ...prev, city: v }))}
                     labelSize="text-[11px]"
                   />
                 </div>

@@ -81,9 +81,9 @@ const Instellingen = () => {
               address={companyInfo.address}
               postalCode={companyInfo.postal_code}
               city={companyInfo.city}
-              onAddressChange={(v) => setCompanyInfo({ ...companyInfo, address: v })}
-              onPostalCodeChange={(v) => setCompanyInfo({ ...companyInfo, postal_code: v })}
-              onCityChange={(v) => setCompanyInfo({ ...companyInfo, city: v })}
+              onAddressChange={(v) => setCompanyInfo((prev) => ({ ...prev, address: v }))}
+              onPostalCodeChange={(v) => setCompanyInfo((prev) => ({ ...prev, postal_code: v }))}
+              onCityChange={(v) => setCompanyInfo((prev) => ({ ...prev, city: v }))}
             />
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5"><Label className="text-xs">Telefoon</Label><Input value={companyInfo.phone} onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })} /></div>

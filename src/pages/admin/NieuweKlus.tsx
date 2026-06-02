@@ -687,9 +687,9 @@ const NieuweKlus = () => {
                   address={customerForm.address}
                   postalCode={customerForm.postal_code}
                   city={customerForm.city}
-                  onAddressChange={(v) => setCustomerForm({ ...customerForm, address: v })}
-                  onPostalCodeChange={(v) => setCustomerForm({ ...customerForm, postal_code: v })}
-                  onCityChange={(v) => setCustomerForm({ ...customerForm, city: v })}
+                  onAddressChange={(v) => setCustomerForm((prev) => ({ ...prev, address: v }))}
+                  onPostalCodeChange={(v) => setCustomerForm((prev) => ({ ...prev, postal_code: v }))}
+                  onCityChange={(v) => setCustomerForm((prev) => ({ ...prev, city: v }))}
                 />
               </div>
             ) : (
