@@ -987,9 +987,22 @@ const NieuweKlus = () => {
 
                     {/* Add products button / category browser */}
                     {!room.browsing ? (
-                      <Button variant="outline" size="sm" className="w-full h-9 text-xs" onClick={() => updateRoom(room.id, { browsing: true, activeCategoryId: null, productSearch: "" })}>
-                        <Plus className="mr-1.5 h-3.5 w-3.5" /> Producten toevoegen
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="flex-1 h-9 text-xs" onClick={() => updateRoom(room.id, { browsing: true, activeCategoryId: null, productSearch: "" })}>
+                          <Plus className="mr-1.5 h-3.5 w-3.5" /> Producten toevoegen
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-9 text-xs"
+                          onClick={() => setRooms(prev => prev.map(r => r.id === room.id ? {
+                            ...r,
+                            products: [...r.products, { product_id: null, description: "", quantity: 1, unit_price: 0 }],
+                          } : r))}
+                        >
+                          <Plus className="mr-1.5 h-3.5 w-3.5" /> Eigen regel
+                        </Button>
+                      </div>
                     ) : (
                       <div className="border rounded-xl p-3 space-y-3 bg-muted/20">
                         {!room.activeCategoryId ? (
