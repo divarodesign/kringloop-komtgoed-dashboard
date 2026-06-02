@@ -227,6 +227,13 @@ const NieuweKlus = () => {
     }));
   };
 
+  const setRoomProductDescription = (roomId: string, index: number, description: string) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      return { ...r, products: r.products.map((p, i) => i === index ? { ...p, description } : p) };
+    }));
+  };
+
   const addRoom = () => {
     const nextNum = rooms.length + 1;
     setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
