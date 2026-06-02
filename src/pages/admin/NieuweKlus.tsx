@@ -515,7 +515,7 @@ const NieuweKlus = () => {
     setSavingConcept(false);
   }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, travelFixedPrice, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
 
-  const travelCost = travelKm ? travelFixedPrice : 0;
+  const travelCost = travelFixedPrice;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
   const subtotal = jobType === "ontruiming" ? (parseFloat(customPrice) || advisedPrice) : productsTotal;
   const extra = parseFloat(extraCosts) || 0;
