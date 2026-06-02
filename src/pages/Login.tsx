@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Recycle, Mail, Lock, ArrowLeft, Leaf } from "lucide-react";
+import { Mail, Lock, ArrowLeft, Leaf } from "lucide-react";
+import logoAsset from "@/assets/logo.png.asset.json";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
@@ -51,11 +52,8 @@ const Login = () => {
         <div className="absolute top-1/2 left-1/4 h-64 w-64 rounded-full bg-white/5" />
         
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-              <Recycle className="h-6 w-6" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">Kringloop Komt Goed</span>
+          <div className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-lg">
+            <img src={logoAsset.url} alt="Kringloop Komt Goed" className="h-14 w-auto object-contain" />
           </div>
           
           <div className="space-y-6 max-w-md">
@@ -80,11 +78,8 @@ const Login = () => {
       {/* Right side - login form */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 bg-background">
         {/* Mobile logo */}
-        <div className="lg:hidden flex items-center gap-3 mb-10">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Recycle className="h-6 w-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">Kringloop Komt Goed</span>
+        <div className="lg:hidden flex items-center justify-center mb-10">
+          <img src={logoAsset.url} alt="Kringloop Komt Goed" className="h-16 w-auto object-contain" />
         </div>
 
         <div className="w-full max-w-sm space-y-8">
