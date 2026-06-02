@@ -396,8 +396,9 @@ const KlusDetail = () => {
     const roomNames = Object.keys(roomGroups);
     const hasRooms = roomNames.length > 1 || (roomNames.length === 1 && roomNames[0] !== "Overig");
 
-    if (job?.job_type === "ontruiming" && job.custom_price) {
-      lines.push({ description: "Ontruiming", quantity: 1, price: job.custom_price });
+    if (job?.job_type === "ontruiming") {
+      const ontruimingPrice = Number(job.custom_price ?? job.advised_price ?? 0);
+      lines.push({ description: "Ontruiming", quantity: 1, price: ontruimingPrice });
     } else if (hasRooms) {
       roomNames.forEach(roomName => {
         roomGroups[roomName].forEach(item => {
