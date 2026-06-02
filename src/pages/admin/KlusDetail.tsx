@@ -641,7 +641,7 @@ const KlusDetail = () => {
               Offerte herzien
             </Button>
           )}
-
+          {(job.status === "in_uitvoering" || (job.is_direct && !["oplevering", "te_factureren", "gefactureerd", "afgerond"].includes(job.status))) && !delivery && (
             <Button onClick={startDelivery} className="gap-1.5">
               <ClipboardCheck className="h-4 w-4" /> Oplevering starten
             </Button>
