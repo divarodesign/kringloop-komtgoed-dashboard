@@ -149,7 +149,7 @@ const Agenda = () => {
       if (endDate && endDate !== j.scheduled_date) {
         const days = eachDayOfInterval({ start: new Date(j.scheduled_date), end: new Date(endDate) });
         days.forEach(d => {
-          const ds = d.toISOString().split("T")[0];
+          const ds = toDateStr(d);
           if (!map[ds]) map[ds] = [];
           map[ds].push({ ...item, date: ds });
         });
