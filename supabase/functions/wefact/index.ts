@@ -393,6 +393,39 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "delete_quotes") {
+      // Delete all WeFact pricequotes linked to this job and clear local quote rows
+      const { data: existingQuotes } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("job_id", job_id);
+
+      for (const q of existingQuotes || []) {
+        if (!q.quote_number) continue;
+        try {
+          // Look up Identifier (needed for delete)
+          const listRes = await wefactRequest("pricequote", "list", {
+            searchat: "PriceQuoteCode",
+            searchfor: q.quote_number,
+          });
+          const identifier = listRes.pricequotes?.[0]?.Identifier;
+          if (identifier) {
+            await wefactRequest("pricequote", "delete", { Identifier: identifier });
+          }
+        } catch (e) {
+          console.error("Could not delete WeFact pricequote", q.quote_number, e);
+        }
+      }
+
+      // Delete local quote rows
+      await supabase.from("quotes").delete().eq("job_id", job_id);
+
+      return new Response(
+        JSON.stringify({ success: true, deleted: (existingQuotes || []).length }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "create_invoice") {
       const { data: extraSales } = await supabase.from("extra_sales").select("*").eq("job_id", job_id);
       const invoiceTargetTotalIncl = getInvoiceTargetTotal(job, jobItems || [], extraSales || []);
