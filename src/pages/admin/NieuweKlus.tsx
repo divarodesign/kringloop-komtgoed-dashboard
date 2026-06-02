@@ -443,7 +443,7 @@ const NieuweKlus = () => {
         setCustomerId(cid);
         setNewCustomer(false);
       }
-      const tc = travelKm ? travelFixedPrice : 0;
+      const tc = travelFixedPrice;
       const ec = parseFloat(extraCosts) || 0;
       const jobData = {
         customer_id: cid, title: title || "Concept klus", description: description || null, job_type: jobType, housing_type: housingType || null, status: "concept" as const,
@@ -515,7 +515,7 @@ const NieuweKlus = () => {
     setSavingConcept(false);
   }, [customerId, newCustomer, customerForm, title, description, jobType, travelKm, travelFixedPrice, discountType, discountValue, extraCosts, extraCostsDesc, surchargePercentage, advisedPrice, customPrice, workAddress, workCity, workPostalCode, scheduledDate, scheduledTime, isDirect, isQuoteRequest, step, conceptJobId, rooms, user]);
 
-  const travelCost = travelKm ? travelFixedPrice : 0;
+  const travelCost = travelFixedPrice;
   const productsTotal = selectedProducts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
   const subtotal = jobType === "ontruiming" ? (parseFloat(customPrice) || advisedPrice) : productsTotal;
   const extra = parseFloat(extraCosts) || 0;
@@ -850,24 +850,21 @@ const NieuweKlus = () => {
                 onPostalCodeChange={setWorkPostalCode}
                 onCityChange={setWorkCity}
               />
-              {(travelKm || calculatingDistance) && (
-                <div className="border rounded-xl p-3 mt-3 space-y-1.5 bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium">Voorrijkosten</p>
-                      <p className="text-[10px] text-muted-foreground">Vanaf: {companyAddress || "Stel in bij Instellingen"}</p>
-                    </div>
-                    {calculatingDistance ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    ) : (
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">{travelKm} km</p>
-                        <p className="text-sm font-bold">{formatPrice(travelCost)}</p>
-                      </div>
-                    )}
+              <div className="border rounded-xl p-3 mt-3 space-y-1.5 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium">Voorrijkosten</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {travelKm ? `${travelKm} km vanaf ${companyAddress || "bedrijfsadres"}` : "Vast tarief (alle klussen)"}
+                    </p>
                   </div>
+                  {calculatingDistance ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <p className="text-sm font-bold">{formatPrice(travelCost)}</p>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Show selected products summary */}
