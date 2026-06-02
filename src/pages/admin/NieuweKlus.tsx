@@ -970,15 +970,16 @@ const NieuweKlus = () => {
                           <div key={i} className="flex items-center justify-between text-xs gap-2">
                             <input type="text" value={sp.description} onChange={e => setRoomProductDescription(room.id, i, e.target.value)} className="flex-1 min-w-0 bg-transparent border rounded text-xs px-1.5 py-0.5" onClick={e => e.stopPropagation()} />
                             <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, -1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Minus className="h-3 w-3" /></button>
-                              <input type="number" min="1" value={sp.quantity} onChange={e => { const v = parseInt(e.target.value); if (v > 0) setRoomProductAbsoluteQuantity(room.id, sp.product_id, v, i); }} className="w-8 text-center font-medium bg-transparent border rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
-                              <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, 1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Plus className="h-3 w-3" /></button>
+                              <button onClick={() => setRooms(prev => prev.map(r => r.id === room.id ? { ...r, products: r.products.map((p, idx) => idx === i ? { ...p, quantity: Math.max(1, p.quantity - 1) } : p) } : r))} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Minus className="h-3 w-3" /></button>
+                              <input type="number" min="1" value={sp.quantity} onChange={e => { const v = parseInt(e.target.value); if (v > 0) setRooms(prev => prev.map(r => r.id === room.id ? { ...r, products: r.products.map((p, idx) => idx === i ? { ...p, quantity: v } : p) } : r)); }} className="w-8 text-center font-medium bg-transparent border rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
+                              <button onClick={() => setRooms(prev => prev.map(r => r.id === room.id ? { ...r, products: r.products.map((p, idx) => idx === i ? { ...p, quantity: p.quantity + 1 } : p) } : r))} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Plus className="h-3 w-3" /></button>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <span className="text-muted-foreground">€</span>
                               <input type="number" min="0" step="0.01" value={sp.unit_price} onChange={e => setRoomProductUnitPrice(room.id, i, parseFloat(e.target.value) || 0)} className="w-16 text-right font-medium bg-transparent border rounded text-xs px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
                             </div>
                             <span className="font-medium shrink-0 w-16 text-right">{formatPrice(sp.quantity * sp.unit_price)}</span>
+                            <button onClick={() => setRooms(prev => prev.map(r => r.id === room.id ? { ...r, products: r.products.filter((_, idx) => idx !== i) } : r))} className="h-6 w-6 rounded hover:bg-destructive/10 text-destructive flex items-center justify-center shrink-0"><Trash2 className="h-3 w-3" /></button>
                           </div>
                         ))}
                         <p className="text-xs font-bold text-right border-t pt-1.5">{formatPrice(roomTotal)}</p>
