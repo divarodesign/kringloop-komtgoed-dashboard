@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Recycle, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
+import logoAsset from "@/assets/logo.png.asset.json";
 import { useToast } from "@/hooks/use-toast";
 
 const ResetPassword = () => {
@@ -52,8 +53,8 @@ const ResetPassword = () => {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-lg border-0 shadow-primary/5">
         <CardHeader className="text-center space-y-4 pb-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Recycle className="h-7 w-7" />
+          <div className="mx-auto flex items-center justify-center">
+            <img src={logoAsset.url} alt="Kringloop Komt Goed" className="h-16 w-auto object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Nieuw wachtwoord</CardTitle>

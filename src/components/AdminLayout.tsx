@@ -1,7 +1,8 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Recycle, Users, Wrench, CalendarDays, Receipt, Inbox } from "lucide-react";
+import { Users, Wrench, CalendarDays, Receipt, Inbox } from "lucide-react";
+import logoAsset from "@/assets/logo.png.asset.json";
 
 const bottomNavItems = [
   { label: "Klanten", icon: Users, path: "/admin/klanten" },
@@ -22,11 +23,8 @@ const AdminLayout = () => {
         <main className="flex-1 flex flex-col min-w-0">
           <header className="h-12 sm:h-14 flex items-center border-b px-3 sm:px-4 bg-card sticky top-0 z-30">
             <SidebarTrigger />
-            <div className="flex items-center gap-2 ml-2 sm:hidden">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Recycle className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-semibold">Komt Goed</span>
+            <div className="flex items-center ml-2 sm:hidden">
+              <img src={logoAsset.url} alt="Kringloop Komt Goed" className="h-8 w-auto object-contain" />
             </div>
           </header>
           <div className="flex-1 p-3 sm:p-6 overflow-auto pb-20 sm:pb-6">

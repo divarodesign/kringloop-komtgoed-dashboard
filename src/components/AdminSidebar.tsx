@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, Briefcase, Calendar, ClipboardCheck,
-  Package, Receipt, UserCog, Settings, LogOut, Recycle, Inbox
+  Package, Receipt, UserCog, Settings, LogOut, Inbox
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import logoAsset from "@/assets/logo.png.asset.json";
 
 const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -60,14 +61,8 @@ export function AdminSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Recycle className="h-5 w-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-sidebar-foreground">Kringloop</span>
-            <span className="text-xs text-muted-foreground">Komt Goed</span>
-          </div>
+        <div className="flex items-center justify-center">
+          <img src={logoAsset.url} alt="Kringloop Komt Goed" className="h-14 w-auto object-contain" />
         </div>
       </SidebarHeader>
 
