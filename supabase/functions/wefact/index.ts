@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
         DebtorCode: debtorCode,
         Date: today,
         Description: job.title,
-        Term: 30,
+        Term: 7,
         VatCalcMethod: "incl",
         PriceQuoteLines: finalLines,
       };
