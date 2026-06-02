@@ -227,6 +227,13 @@ const NieuweKlus = () => {
     }));
   };
 
+  const setRoomProductDescription = (roomId: string, index: number, description: string) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== roomId) return r;
+      return { ...r, products: r.products.map((p, i) => i === index ? { ...p, description } : p) };
+    }));
+  };
+
   const addRoom = () => {
     const nextNum = rooms.length + 1;
     setRooms(prev => [...prev, { id: crypto.randomUUID(), name: `Kamer ${nextNum}`, products: [], photos: [], expanded: true, browsing: false, activeCategoryId: null, productSearch: "" }]);
@@ -961,7 +968,7 @@ const NieuweKlus = () => {
                       <div className="space-y-1.5">
                         {room.products.map((sp, i) => (
                           <div key={i} className="flex items-center justify-between text-xs gap-2">
-                            <span className="truncate flex-1">{sp.description}</span>
+                            <input type="text" value={sp.description} onChange={e => setRoomProductDescription(room.id, i, e.target.value)} className="flex-1 min-w-0 bg-transparent border rounded text-xs px-1.5 py-0.5" onClick={e => e.stopPropagation()} />
                             <div className="flex items-center gap-1 shrink-0">
                               <button onClick={() => { const product = products.find(p => p.id === sp.product_id); if (product) setRoomProductQuantity(room.id, product, -1); }} className="h-6 w-6 rounded bg-muted flex items-center justify-center"><Minus className="h-3 w-3" /></button>
                               <input type="number" min="1" value={sp.quantity} onChange={e => { const v = parseInt(e.target.value); if (v > 0) setRoomProductAbsoluteQuantity(room.id, sp.product_id, v, i); }} className="w-8 text-center font-medium bg-transparent border rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" onClick={e => e.stopPropagation()} />
