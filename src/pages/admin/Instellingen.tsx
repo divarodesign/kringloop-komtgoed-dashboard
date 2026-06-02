@@ -62,7 +62,7 @@ const Instellingen = () => {
       <Card>
         <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-2">
           <CardTitle className="text-base">Voorrijkosten</CardTitle>
-          <CardDescription className="text-xs">Configureer de tariefzones</CardDescription>
+          <CardDescription className="text-xs">Vast tarief dat altijd op elke klus wordt toegepast</CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2 space-y-3">
           <div className="grid gap-1.5 max-w-xs"><Label className="text-xs">Vast tarief (€)</Label><Input type="number" step="0.01" value={travelCosts.fixed_price} onChange={(e) => setTravelCosts({ ...travelCosts, fixed_price: parseFloat(e.target.value) || 0 })} /></div>
