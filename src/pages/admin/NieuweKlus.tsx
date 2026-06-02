@@ -443,7 +443,7 @@ const NieuweKlus = () => {
         setCustomerId(cid);
         setNewCustomer(false);
       }
-      const tc = travelKm ? travelFixedPrice : 0;
+      const tc = travelFixedPrice;
       const ec = parseFloat(extraCosts) || 0;
       const jobData = {
         customer_id: cid, title: title || "Concept klus", description: description || null, job_type: jobType, housing_type: housingType || null, status: "concept" as const,
