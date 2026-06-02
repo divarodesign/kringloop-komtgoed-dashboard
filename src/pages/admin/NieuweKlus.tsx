@@ -374,17 +374,39 @@ const NieuweKlus = () => {
     const loadLead = async () => {
       const { data: lead } = await supabase.from("leads").select("*").eq("id", lid).single();
       if (!lead) return;
-      // Prefill customer form (new customer)
-      setNewCustomer(true);
-      setCustomerForm({
-        name: lead.name || "",
-        email: lead.email || "",
-        phone: lead.phone || "",
-        address: lead.address || "",
-        city: lead.city || "",
-        postal_code: lead.postal_code || "",
-      });
-      // Prefill work address
+      // Try to find an existing customer (auto-created when the lead was submitted)
+      let existingCustomer: any = null;
+      if (lead.email) {
+        const { data } = await supabase.from("customers").select("*").ilike("email", lead.email).limit(1).maybeSingle();
+        if (data) existingCustomer = data;
+      }
+      if (!existingCustomer && lead.phone) {
+        const { data } = await supabase.from("customers").select("*").eq("phone", lead.phone).limit(1).maybeSingle();
+        if (data) existingCustomer = data;
+      }
+      if (!existingCustomer && lead.name) {
+        const { data } = await supabase.from("customers").select("*").ilike("name", lead.name).limit(1).maybeSingle();
+        if (data) existingCustomer = data;
+      }
+
+      if (existingCustomer) {
+        // Link to existing customer instead of creating a new one
+        setNewCustomer(false);
+        setCustomerId(existingCustomer.id);
+        setCustomers((prev) => (prev.some((c) => c.id === existingCustomer.id) ? prev : [existingCustomer, ...prev]));
+      } else {
+        // Fallback: prefill new customer form
+        setNewCustomer(true);
+        setCustomerForm({
+          name: lead.name || "",
+          email: lead.email || "",
+          phone: lead.phone || "",
+          address: lead.address || "",
+          city: lead.city || "",
+          postal_code: lead.postal_code || "",
+        });
+      }
+      // Prefill work address from lead
       if (lead.address || lead.city) {
         setWorkAddress(lead.address || "");
         setWorkCity(lead.city || "");
