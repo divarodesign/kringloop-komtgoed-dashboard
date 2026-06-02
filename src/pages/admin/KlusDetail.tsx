@@ -614,7 +614,34 @@ const KlusDetail = () => {
               <CalendarIcon className="h-4 w-4" /> Inplannen
             </Button>
           )}
-          {(job.status === "in_uitvoering" || (job.is_direct && !["oplevering", "te_factureren", "gefactureerd", "afgerond"].includes(job.status))) && !delivery && (
+          {(job.status === "offerte_verstuurd" || job.status === "offerte_geaccepteerd" || job.status === "offerte_geweigerd") && (
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              disabled={!!wefactLoading}
+              onClick={async () => {
+                if (!confirm("De huidige offerte wordt verwijderd in WeFact en je kunt de klus opnieuw bewerken. Doorgaan?")) return;
+                setWefactLoading("delete_quotes");
+                try {
+                  const { data, error } = await supabase.functions.invoke("wefact", {
+                    body: { action: "delete_quotes", job_id: id },
+                  });
+                  if (error) throw error;
+                  if (data?.error) throw new Error(data.error);
+                  await supabase.from("jobs").update({ status: "concept" }).eq("id", id!);
+                  toast({ title: "Oude offerte verwijderd — je kunt de klus nu aanpassen" });
+                  navigate(`/admin/klussen/nieuw?id=${id}`);
+                } catch (e: any) {
+                  toast({ title: "Fout", description: e.message, variant: "destructive" });
+                  setWefactLoading(null);
+                }
+              }}
+            >
+              {wefactLoading === "delete_quotes" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+              Offerte herzien
+            </Button>
+          )}
+
             <Button onClick={startDelivery} className="gap-1.5">
               <ClipboardCheck className="h-4 w-4" /> Oplevering starten
             </Button>
