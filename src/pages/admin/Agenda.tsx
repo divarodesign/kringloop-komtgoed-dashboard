@@ -50,7 +50,12 @@ const getMonday = (d: Date) => {
   return date;
 };
 
-const toDateStr = (d: Date) => d.toISOString().split("T")[0];
+const toDateStr = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 const isToday = (d: Date) => toDateStr(d) === toDateStr(new Date());
 const formatDateShort = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
 const formatDateFull = (d: Date) => d.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -144,7 +149,7 @@ const Agenda = () => {
       if (endDate && endDate !== j.scheduled_date) {
         const days = eachDayOfInterval({ start: new Date(j.scheduled_date), end: new Date(endDate) });
         days.forEach(d => {
-          const ds = d.toISOString().split("T")[0];
+          const ds = toDateStr(d);
           if (!map[ds]) map[ds] = [];
           map[ds].push({ ...item, date: ds });
         });
