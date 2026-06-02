@@ -360,23 +360,24 @@ export default function Leads() {
         )}
 
         {/* Acties */}
-        {lead.status === "nieuw" && (
-          <div className="flex gap-3 pt-2">
-            <Button className="flex-1" onClick={() => omzettenNaarKlus(lead)}>
-              <ArrowRightCircle className="mr-2 h-4 w-4" />
-              Omzetten naar klus
-            </Button>
+        <div className="flex gap-3 pt-2">
+          <Button className="flex-1" onClick={() => omzettenNaarKlus(lead)}>
+            <ArrowRightCircle className="mr-2 h-4 w-4" />
+            {lead.status === "omgezet" ? "Nog een klus aanmaken" : "Omzetten naar klus"}
+          </Button>
+          {lead.status === "nieuw" && (
             <Button variant="destructive" onClick={() => afwijzen(lead)}>
               <XCircle className="mr-2 h-4 w-4" />
               Afwijzen
             </Button>
-          </div>
-        )}
+          )}
+        </div>
         {lead.status === "omgezet" && lead.job_id && (
           <Button variant="outline" className="w-full" onClick={() => navigate(`/admin/klussen/${lead.job_id}`)}>
-            Bekijk klus →
+            Bekijk laatste klus →
           </Button>
         )}
+
 
         {/* Verwijderen */}
         <Button
