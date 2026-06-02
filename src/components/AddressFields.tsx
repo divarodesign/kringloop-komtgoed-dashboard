@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
@@ -28,34 +28,46 @@ const AddressFields = ({
   const [looking, setLooking] = useState(false);
   const { toast } = useToast();
 
-  const lookupAddress = useCallback(async (pc: string, nr: string) => {
-    if (!pc || pc.replace(/\s/g, "").length < 6 || !nr) return;
-    setLooking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("lookup-address", {
-        body: { postcode: pc.replace(/\s/g, ""), huisnummer: nr },
-      });
-      if (error) throw error;
-      if (data?.straat) {
-        onAddressChange(`${data.straat} ${nr}`);
-        if (data.stad) onCityChange(data.stad);
-      } else if (data?.error) {
-        toast({ title: data.error, variant: "destructive" });
-      }
-    } catch (e: any) {
-      toast({ title: "Fout bij opzoeken", description: e.message, variant: "destructive" });
-    }
-    setLooking(false);
-  }, [onAddressChange, onCityChange, toast]);
+  // Keep latest callbacks in refs so the lookup effect doesn't re-run on every parent render
+  const onAddressChangeRef = useRef(onAddressChange);
+  const onCityChangeRef = useRef(onCityChange);
+  const toastRef = useRef(toast);
+  useEffect(() => { onAddressChangeRef.current = onAddressChange; }, [onAddressChange]);
+  useEffect(() => { onCityChangeRef.current = onCityChange; }, [onCityChange]);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
 
-  // Auto-trigger lookup when postcode and huisnummer are filled
+  // Dedupe: remember the last combination we looked up so we don't loop
+  const lastLookupRef = useRef<string>("");
+
   useEffect(() => {
     const cleanPostcode = postalCode.replace(/\s/g, "");
-    if (cleanPostcode.length >= 6 && huisnummer.length >= 1) {
-      const timer = setTimeout(() => lookupAddress(postalCode, huisnummer), 600);
-      return () => clearTimeout(timer);
-    }
-  }, [postalCode, huisnummer, lookupAddress]);
+    if (cleanPostcode.length < 6 || huisnummer.length < 1) return;
+
+    const key = `${cleanPostcode}|${huisnummer}`;
+    if (key === lastLookupRef.current) return;
+
+    const timer = setTimeout(async () => {
+      lastLookupRef.current = key;
+      setLooking(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("lookup-address", {
+          body: { postcode: cleanPostcode, huisnummer },
+        });
+        if (error) throw error;
+        if (data?.straat) {
+          onAddressChangeRef.current(`${data.straat} ${huisnummer}`);
+          if (data.stad) onCityChangeRef.current(data.stad);
+        } else if (data?.error) {
+          toastRef.current({ title: data.error, variant: "destructive" });
+        }
+      } catch (e: any) {
+        toastRef.current({ title: "Fout bij opzoeken", description: e.message, variant: "destructive" });
+      } finally {
+        setLooking(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [postalCode, huisnummer]);
 
   return (
     <div className="space-y-3">
